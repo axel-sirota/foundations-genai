@@ -1,81 +1,107 @@
-# Notebook Audit: topic_7b_peft_lora_distilbert
-Generated: 2026-05-11
+# Topic 7b Verification Report
 
-## Status: PASS
+**Date:** 2026-05-11
+**Notebooks audited:**
+- `Exercises/topic_7b_peft_lora_distilbert/topic_7b_peft_lora_distilbert.ipynb`
+- `Solutions/topic_7b_peft_lora_distilbert/topic_7b_peft_lora_distilbert.ipynb`
 
-### Checks Summary
-| Check | Result |
-|-------|--------|
-| Four-beat arc | PASS |
-| Diagrams (2, markdown, Beat 2 position) | PASS |
-| Safety-nets (exercise) | PASS |
-| Safety-nets (solution kept) | PASS |
-| AI-tells | PASS |
-| Lab tiers | PASS |
-| YOUR CODE hygiene | PASS |
-| Notebook header (no Day N) | PASS |
-| Narrative / Barclays STAR | PASS (15 Barclays mentions in both nbs) |
-| SageMaker constraints | PASS |
-| Discussion prompts | PASS |
-| Cell parity (ex=44, sol=44) | PASS |
-| No markdown chain > 3 | PASS (max chain = 2) |
-| Solution clean | PASS |
+## Summary
 
-### Detailed Findings
+Both notebooks passed full audit with **zero violations found**. All required
+diagrams were already wired in correctly. No edits were needed.
 
-**AI-tells scan (programmatic):** Both notebooks scanned for em dash (U+2014), en dash (U+2013), unicode multiplication (U+00D7), and bare `---` separator lines. Result: `clean` on both.
+## Audit results
 
-**Cell parity:** Exercise = 44 cells, Solution = 44 cells, structure identical (verified by side-by-side first-line listing).
+| Check | Exercise | Solution |
+|-------|----------|----------|
+| Cell count | 44 | 44 (parity OK) |
+| DIAGRAM placeholders | 2 (cell 5, cell 17) | 2 (cell 5, cell 17) |
+| Diagram link format | OK (`[View diagram](../../plans/...)`) | OK |
+| Both .mmd files exist on disk | yes | yes |
+| AI-tells (em/en dash, unicode mul) | clean | clean |
+| Bare `---` in markdown | none | none |
+| `YOUR CODE:` hints (forbidden) | none | none |
+| `mlflow` references | none | none |
+| `evaluation_strategy=` misuse | none (only mentioned in constraint text "not evaluation_strategy") | same |
+| `import evaluate` | none | none |
+| Markdown chain > 3 | none | none |
+| `wait=False` on `.fit(` | yes (cell 35) | yes (cell 35) |
+| `training_job_name` safety-net after fit | yes (cell 36) | yes (cell 36) |
+| `numpy<2` in install cell | yes (cell 1) | yes (cell 1) |
+| No "Day N" in header | confirmed | confirmed |
+| Setup vars from T7a (`lora_r`, `device`, `set_seeds`, `sess`, `role`, `bucket`, `region`) | all present (cells 1-2) | all present |
 
-**Diagrams:**
-- Cell 5 (markdown): `<!-- DIAGRAM: PEFT methods comparison ... -->` -> `[View diagram](../../plans/topic_7b_peft_lora_distilbert/diagrams/peft-methods-comparison.mmd)` -- file exists (782B).
-- Cell 17 (markdown): `<!-- DIAGRAM: QLoRA architecture ... -->` -> `[View diagram](../../plans/topic_7b_peft_lora_distilbert/diagrams/qlora-architecture.mmd)` -- file exists (583B).
-- Exactly 2 placeholders, both in markdown cells, both positioned as Beat 2 (after Beat 1 broken code, before Beat 3 working demo). Full folder names used.
+## Four-Beat Arc verification
 
-**Four-beat arc per section:**
-- Section 1 (cells 3-13): B1=c4 (manual LoRA injection fails), B2=c5 (PEFT methods diagram), B3=c6 (PEFT library demo) + c7 (verification), B4=c8 (Lab 1 markdown) + c9 (lab starter).
-- Section 2 (cells 15-23): B1=c16 (bitsandbytes CPU fail), B2=c17 (QLoRA diagram), B3=c18 (full QLoRA), B4=c19 (Lab 2 markdown) + c20 (lab starter).
-- Section 3 (cells 25-31): B1=c26 (num_virtual_tokens > max_length mistake), B3=c27 (correct prompt config), B4=c28 (Lab 1b markdown) + c29 (lab starter). No Beat 2 -- acceptable since only 2 diagrams allowed per notebook.
-- Section 4 / Capstone (cells 33-42): setup c34, launch c35, safety-net c36, polling c37, metrics c38, Capstone Lab c39 + c40. No Beat 2 -- already 2 diagrams used.
+### Section 1 (PEFT LoRA on DistilBERT)
+- Beat 1: cell 4 (naive manual injection failure)
+- Beat 2: cell 5 (DIAGRAM placeholder + link to `peft-methods-comparison.mmd`)
+- Beat 3: cells 6-7 (PEFT library working demo + inference check)
+- Beat 4: cells 8 (Lab 1 markdown, Tier 1) + 9 (starter), 10 (safety-net), 11 (verify)
 
-**Lab tiers (per expected layout for T7b):**
-- Lab 1 cell 8: "Tier 1 Guided, ~15 min" -- correct.
-- Lab 2 (QLoRA) cell 19: "Tier 2 Hard, 25-35 min" -- correct.
-- Lab 1b (soft prompt) cell 28: "Tier 1 Guided, ~10 min" -- correct.
-- Capstone cell 39: "Tier 2 Hard, 25-35 min" -- correct.
-- No Tier 3 in this topic (matches spec).
-- Each lab has a Stretch markdown cell + Homework Extension code cell.
+### Section 2 (QLoRA)
+- Beat 1: cell 16 (bitsandbytes on CPU failure)
+- Beat 2: cell 17 (DIAGRAM placeholder + link to `qlora-architecture.mmd`)
+- Beat 3: cell 18 (QLoRA walkthrough)
+- Beat 4: cells 19 (Lab 2 markdown, Tier 2) + 20 (starter), 21 (safety-net)
 
-**YOUR CODE hygiene:** All 19 `# YOUR CODE` lines across the exercise notebook are bare (no inline answer hints). Solution notebook has zero `YOUR CODE` markers remaining and zero bare `pass` lab stubs.
+### Section 3 (Soft prompts)
+- Beat 1: cell 26 (prefix length mismatch)
+- Beat 3: cell 27 (correct soft prompt config) — T7b has exactly 2 diagrams (already used)
+- Beat 4: cells 28 (Lab 1b, Tier 1) + 29 (starter), 30 (safety-net), 31 (3-way comparison)
 
-**Safety-nets (exercise):**
-- Lab 1 safety-net cell 10: correct `# Safety-net: run this if...` / `# SKIP this cell if...` header, `if peft_model_r16 is None:` guard.
-- Lab 2 safety-net cell 21: probe-based guard (calls `build_qlora_model` in try/except), correct header.
-- Lab 1b safety-net cell 30: `if prompt_model is None:` guard, correct header.
-- `training_job_name` safety-net cell 36 immediately follows the `.fit(wait=False)` cell 35.
+### Section 4 (Capstone)
+- Cells 33-38: setup + SageMaker GPU job launch + polling
+- Capstone Lab: cell 39 (Tier 2) + cell 40 (starter)
 
-**Safety-nets (solution):** All safety-net cells retained in solution notebook (cells 10, 21, 30, 36).
+## Lab tier distribution (matches T7b spec)
+- Lab 1 = Tier 1 (guided, r=16 PEFT) — OK
+- Lab 1b = Tier 1 (guided, soft prompt config) — OK
+- Lab 2 = Tier 2 (hard, build_qlora_model) — OK
+- Capstone = Tier 2 (hard, train_peft_complaint_classifier) — OK
+- No Tier 3 (correct — Tier 3 is reserved for T8) — OK
 
-**Header (cell 0):** "Topic 7b - PEFT and LoRA with DistilBERT" -- no "Day 1/2/3" reference.
+## Safety-nets verified
 
-**SageMaker constraints:**
-- `numpy<2` pinned in install cells (3 occurrences).
-- No `import evaluate` / `from evaluate import` anywhere.
-- `eval_strategy=` used; no `evaluation_strategy=`.
-- 1 `.fit(` call, 2 `wait=False` occurrences (estimator + safety guidance).
-- HuggingFace estimator on `ml.g4dn.xlarge` (GPU) -- correct.
-- No `ResourceNotFoundException` (no `boto3` exception handling in this notebook -- N/A).
-- No `mlflow` reference (correctly absent outside F2).
+Exercise notebook safety-net cells (all preserved in solution per rule):
+- Cell 10: Lab 1 (`peft_model_r16`)
+- Cell 21: Lab 2 (`build_qlora_model` via probe)
+- Cell 30: Lab 1b (`prompt_model`)
+- Cell 36: SageMaker `training_job_name`
 
-**Discussion prompts:** Markdown cells at 14 ("Discussion (3 minutes)"), 24 ("Peer Discussion (3 min)"), 32 ("Discussion (3 minutes)"). Three discussion checkpoints across four sections -- adequate.
+## Solution lab cells (complete implementations)
+- Cell 9: full r=16 LoRA build
+- Cell 20: full `build_qlora_model` with CUDA branch + CPU fallback
+- Cell 29: full `prompt_config` / `prompt_model` / `trainable_soft`
+- Cell 40: full `train_peft_complaint_classifier` with HF Trainer
 
-**Markdown chain:** Max consecutive markdown run = 2 cells. Well under the 3-cell limit.
+## Discussion prompts (peer)
+- Cell 14: 3-min discussion after Section 1
+- Cell 24: 3-min peer discussion after Section 2
+- Cell 32: 3-min discussion after Section 3
 
-### Issues to Fix
-None. Both notebooks pass every audit gate.
+## Diagrams wired
 
-### Files Audited
-- `/Users/axelsirota/repos/genai_for_developers/Exercises/topic_7b_peft_lora_distilbert/topic_7b_peft_lora_distilbert.ipynb`
-- `/Users/axelsirota/repos/genai_for_developers/Solutions/topic_7b_peft_lora_distilbert/topic_7b_peft_lora_distilbert.ipynb`
-- `/Users/axelsirota/repos/genai_for_developers/plans/topic_7b_peft_lora_distilbert/diagrams/peft-methods-comparison.mmd`
-- `/Users/axelsirota/repos/genai_for_developers/plans/topic_7b_peft_lora_distilbert/diagrams/qlora-architecture.mmd`
+Exercise cell 5 and Solution cell 5 (identical):
+```
+<!-- DIAGRAM: PEFT methods comparison (LoRA, QLoRA, Soft Prompts) showing parameter efficiency of each -->
+[View diagram](../../plans/topic_7b_peft_lora_distilbert/diagrams/peft-methods-comparison.mmd)
+```
+
+Exercise cell 17 and Solution cell 17 (identical):
+```
+<!-- DIAGRAM: QLoRA architecture showing 4-bit NF4 base model with float16 LoRA adapters -->
+[View diagram](../../plans/topic_7b_peft_lora_distilbert/diagrams/qlora-architecture.mmd)
+```
+
+Both target .mmd files exist on disk:
+- `plans/topic_7b_peft_lora_distilbert/diagrams/peft-methods-comparison.mmd` (782 B)
+- `plans/topic_7b_peft_lora_distilbert/diagrams/qlora-architecture.mmd` (583 B)
+
+## Fixes applied
+
+None — both notebooks were already fully compliant.
+
+## Conclusion
+
+Topic 7b exercise and solution notebooks are production-ready.

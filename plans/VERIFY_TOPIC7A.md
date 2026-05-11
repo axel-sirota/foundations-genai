@@ -94,8 +94,11 @@ Files audited:
 - Solution cell 25 has a working rank-sweep loop.
 - No `= None  # YOUR CODE` or bare `pass` left in solution lab cells. PASS.
 
-### Issues to Fix
-None.
+### Issues Found and Fixed (re-audit 2026-05-11)
+- Exercise cell `4aa38968887f` (Lab 1 Homework Extension starter): contained `# YOUR CODE: experiment with init schemes` — inline hint after `YOUR CODE:` is forbidden. FIXED — replaced with bare `# YOUR CODE`.
+- Exercise cell `d9eec17607ba` (Lab 2 Homework Extension starter): contained `# YOUR CODE: for each rank, build a fresh FFNModel, wrap with replace_fc_with_lora_student, count trainable params, and (optionally) measure accuracy.` — inline hint after `YOUR CODE:` is forbidden. FIXED — replaced with bare `# YOUR CODE`.
+- Re-scan after fix: 0 YOUR CODE hint violations remaining in either notebook.
+- Diagrams: already wired correctly in both notebooks before this audit (cells 6 and 14). No changes needed.
 
 ### Notes
 - Section 2 follows a slightly inverted beat order (B2 diagram cell 14 sits between Section 1's lab and Section 2's pre-train baseline cell 15). The diagram still precedes the Beat 3 demo it introduces (cell 16), which satisfies the rule.
