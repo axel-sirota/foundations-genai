@@ -1,0 +1,86 @@
+# Notebook Course Pipeline - genai_for_developers
+# A specialised SDD pipeline for building pedagogically sound Jupyter notebook courses.
+# Replaces the standard SDD chain after /specify with a research-first, notebook-build flow.
+#
+# Chain:
+#   /request -> /specify -> /run-research-topic -> /verify-research
+#     -> /build-topic-notebook -> /validate-notebooks -> /build-diagrams -> done (commit)
+#
+# Feature branches are DISABLED for this repo - all work commits to main directly.
+# No /finish-feature, no PR flow, no skeleton/implement/tests gates.
+
+version: 1
+
+states:
+  request:
+    next: specify
+    next_command: "/specify {slug}"
+    description: "Capture topic idea, create plan stub"
+    marker_written: "dod-read-{slug}.done"
+    marker_required: null
+    side_channel: false
+
+  specify:
+    next: run-research-topic
+    next_command: "/run-research-topic {slug}"
+    description: "Lock topic scope, outline, and course context"
+    marker_written: "specify-{slug}.done"
+    marker_required: "dod-read-{slug}.done"
+    side_channel: false
+
+  run-research-topic:
+    next: verify-research
+    next_command: "/verify-research {slug}"
+    description: "5-cycle TDD research -> cell-by-cell plan at plans/topic_N_slug.md"
+    marker_written: "research-{slug}.done"
+    marker_required: "specify-{slug}.done"
+    side_channel: false
+
+  verify-research:
+    next: build-topic-notebook
+    next_command: "/build-topic-notebook {slug}"
+    description: "Validate plan file: 14-point checklist, four-beat arc, diagram index, lab tiers"
+    marker_written: "verify-research-{slug}.done"
+    marker_required: "research-{slug}.done"
+    side_channel: false
+
+  build-topic-notebook:
+    next: validate-notebooks
+    next_command: "/validate-notebooks {slug}"
+    description: "Build exercise + solution notebooks 5 cells at a time with approval checkpoints"
+    marker_written: "build-{slug}.done"
+    marker_required: "verify-research-{slug}.done"
+    side_channel: false
+
+  validate-notebooks:
+    next: build-diagrams
+    next_command: "/build-diagrams {slug}"
+    description: "Validate notebook structure, cell order, pedagogy, and placeholder completeness"
+    marker_written: "validate-{slug}.done"
+    marker_required: "build-{slug}.done"
+    side_channel: false
+
+  build-diagrams:
+    next: null
+    next_command: null
+    description: "Generate Mermaid diagrams for all <!-- DIAGRAM: --> placeholders in notebooks"
+    marker_written: "diagrams-{slug}.done"
+    marker_required: "validate-{slug}.done"
+    side_channel: false
+
+  # Side-channel skills - context persistence across sessions
+  save:
+    next: null
+    next_command: null
+    description: "Write HANDOFF.md to survive compaction"
+    marker_written: "save-{slug}-{ts}.done"
+    marker_required: null
+    side_channel: true
+
+  resume:
+    next: null
+    next_command: null
+    description: "Load HANDOFF.md and continue in a fresh session"
+    marker_written: null
+    marker_required: "save-{slug}-*.done"
+    side_channel: true

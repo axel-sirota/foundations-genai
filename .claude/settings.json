@@ -1,0 +1,49 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "WebSearch",
+      "WebFetch",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(pip:*)",
+      "Bash(pip3:*)",
+      "Bash(jupyter:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git branch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(touch:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(curl:*)",
+      "Bash(jq:*)"
+    ],
+    "deny": []
+  },
+  "env": {
+    "ALLOW_DIRECT_MAIN": "1"
+  },
+  "notes": [
+    "Feature branches are DISABLED for this repo - all commits go to main directly.",
+    "ALLOW_DIRECT_MAIN=1 overrides the global branch_guard.py hook.",
+    "Pipeline: /request -> /specify -> /run-research-topic -> /verify-research -> /build-topic-notebook -> /validate-notebooks -> /build-diagrams",
+    "No /finish-feature, no PR flow - this is a content repo not a software project.",
+    "WebSearch and WebFetch auto-approved - required by /run-research-topic (5 research cycles).",
+    "Git push must be run manually by user."
+  ]
+}

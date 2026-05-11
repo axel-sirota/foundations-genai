@@ -1,0 +1,1 @@
+/Users/axelsirota/.claude/hooks/secret-guard.sh
