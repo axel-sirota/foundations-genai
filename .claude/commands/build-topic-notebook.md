@@ -39,9 +39,11 @@ The environment is always **sagemaker** for this course. Do not ask.
 **YOU MUST READ THESE FILES BEFORE DOING ANYTHING:**
 
 1. **CLAUDE.md** - Teaching philosophy, notebook structure, tone, environment, critical rules
-2. **initial_docs/outline.pdf** (already in context from research phase, or re-read)
-3. **plans/topic_<N>_<slug>.md** - The cell-by-cell plan produced by `/run-research-topic`
-4. If topic N > 1: `exercises/topic_<N-1>_*/topic_<N-1>_*.ipynb` - confirm prior variable names
+2. **plans/CORE_TECHNOLOGIES_AND_DECISIONS.md** - pinned versions, estimator rules, IAM setup, canonical patterns
+3. **plans/SAGEMAKER_LESSONS_LEARNED.md** - 14 hard-won pitfalls; every cell you write must pass these before being added
+4. **initial_docs/outline.pdf** (already in context from research phase, or re-read)
+5. **plans/topic_<N>_<slug>.md** - The cell-by-cell plan produced by `/run-research-topic`
+6. If topic N > 1: `exercises/topic_<N-1>_*/topic_<N-1>_*.ipynb` - confirm prior variable names
 
 ### Step 2: Show Plan Summary Before Building
 

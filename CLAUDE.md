@@ -90,7 +90,39 @@ Diagrams are Mermaid source files, not embedded images. `/build-diagrams` genera
 - `getpass.getpass()` for all API keys (never hardcoded)
 - Model: `gpt-4o` for OpenAI — no Anthropic SDK in student notebooks
 - Prior-topic variable names must carry over exactly (check the previous notebook before building)
-- No AI-tells: no em dashes, en dashes, Unicode multiplication signs
+- No AI-tells: no em dashes, en dashes, Unicode multiplication signs, or emojis anywhere in cell bodies, print statements, or markdown headers. Plain ASCII only.
+
+### Notebook Authoring Rules (Hard-Won)
+
+**5-cells approval cadence**: Add max 5 cells with NotebookEdit, STOP, ask "I've added cells X-Y. How does it look? Should I continue?", wait for explicit approval before the next batch. Never interpret "continue" as permission to do all remaining cells. Run `/validate-notebooks` after each 5-cell batch.
+
+**Cell insertion order**: After the first cell, always pass `cell_id` (the cell to insert AFTER) to NotebookEdit. Inserting without `cell_id` puts the cell at the top of the notebook.
+
+**Build order**: Exercise first, solution second. Solution = `cp exercises/.../nb.ipynb solutions/.../nb.ipynb`, then replace each `= None  # YOUR CODE` lab cell with a complete implementation. Never build exercise and solution in parallel.
+
+**Safety-net cells**: If a lab variable feeds a downstream cell, add a safety-net cell immediately after the lab starter:
+
+```python
+# Lab N safety-net: run this if you did not finish Lab N.
+# SKIP this cell if you DID finish Lab N.
+if my_variable is None:
+    print("Using Lab N safety-net so the rest of the notebook can run.")
+    my_variable = <working implementation>
+```
+
+Remove safety-net cells from the solution notebook (the lab cell IS the solution there).
+
+**`# YOUR CODE` hygiene**: The placeholder line must not hint at the answer.
+- Correct: `result = None  # YOUR CODE`
+- Wrong: `result = None  # YOUR CODE: filter df where amount > 1000`
+
+**Peer discussion prompts**: Between major sections add a Discussion markdown cell (3-5 min). Focus on tradeoffs, consequences, and real-world implications — not just "how" but "why" and "what if". Frame from the student's professional perspective.
+
+**Homework Extensions**: Keep in-class labs ~15 min each. Add a "Homework Extension" markdown + starter code cell after every lab for async exercises that build on in-class work.
+
+**Optional deep-dive notebooks**: When a topic has both a practical and theoretical side, the main notebook covers the practical (required for all students). Create a separate `topic_N_optional_<slug>.ipynb` for theory/internals (advanced learners, self-contained, clearly marked supplementary).
+
+**No markdown chain**: Never chain more than 3 consecutive markdown cells without a code cell in between — at minimum one line showing the concept in action.
 
 ## Student Infrastructure (Terraform)
 

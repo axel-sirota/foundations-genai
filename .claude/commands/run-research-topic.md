@@ -98,9 +98,12 @@ This prevents large single Write calls that can get truncated.
 Before any research, read:
 
 1. `CLAUDE.md` - teaching philosophy, notebook structure, tone, environment
-2. `initial_docs/outline.pdf` - extract this topic's section (title, concepts, labs, objectives)
-3. `.claude/commands/build-topic-notebook.md` - the consumer of your plan
-4. If topic N > 1: open `exercises/topic_<N-1>_*/topic_<N-1>_*.ipynb` - list exact variable names, API patterns, and helpers students already have
+2. `plans/CORE_TECHNOLOGIES_AND_DECISIONS.md` - pinned versions, estimator rules, IAM setup, canonical patterns
+3. `plans/SAGEMAKER_LESSONS_LEARNED.md` - 14 hard-won pitfalls; every SageMaker cell must pass these before being written into the plan
+4. `plans/DEFINITION_OF_DONE.md` - checklist the plan must satisfy before being handed to /build-topic-notebook
+5. `initial_docs/outline.pdf` - extract this topic's section (title, concepts, labs, objectives)
+6. `.claude/commands/build-topic-notebook.md` - the consumer of your plan
+7. If topic N > 1: open `exercises/topic_<N-1>_*/topic_<N-1>_*.ipynb` - list exact variable names, API patterns, and helpers students already have
 
 ---
 
