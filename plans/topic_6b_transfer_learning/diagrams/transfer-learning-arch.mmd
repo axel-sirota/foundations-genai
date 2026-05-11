@@ -1,0 +1,22 @@
+flowchart TD
+    Input[Input Tokens]
+    E1[Encoder Layer 1<br/>FROZEN]
+    E2[Encoder Layer 2<br/>FROZEN]
+    E3[Encoder Layer 3<br/>FROZEN]
+    E4[Encoder Layer 4<br/>FROZEN]
+    E5[Encoder Layer 5<br/>FROZEN]
+    E6[Encoder Layer 6<br/>FROZEN]
+    CLS[CLS Pooling]
+    Pre[pre_classifier<br/>TRAINABLE]
+    Cls[classifier<br/>TRAINABLE]
+    Loss[Loss]
+
+    Input --> E1 --> E2 --> E3 --> E4 --> E5 --> E6 --> CLS --> Pre --> Cls --> Loss
+    Loss -. grad .-> Cls
+    Cls -. grad .-> Pre
+    Pre -. STOP .-> CLS
+
+    classDef frozen fill:#d3d3d3,stroke:#555,color:#000
+    classDef trainable fill:#90ee90,stroke:#2a7,color:#000
+    class E1,E2,E3,E4,E5,E6 frozen
+    class Pre,Cls trainable
