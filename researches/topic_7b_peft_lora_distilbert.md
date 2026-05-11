@@ -2,17 +2,19 @@
 
 ## Overview
 
-Topic 7b is the LAST topic of Day 2. It builds directly on Topic 7a, where students
-implemented LoRA from scratch on feed-forward networks. Now students graduate to the
-production-grade HuggingFace PEFT library and apply it to a full complaint classifier
-(DistilBERT for sequence classification). We then demonstrate QLoRA (4-bit quantized
-base model + LoRA adapters) and soft prompts (prefix tuning) as alternative PEFT
-strategies, and close with a Tier 3 open-ended capstone lab where students pick any
-PEFT method and fine-tune a complaint classifier on a GPU SageMaker job.
+Topic 7b sits between Topic 7a and Topic 8 on Day 3. It builds directly on Topic 7a,
+where students implemented LoRA from scratch on feed-forward networks. Now students
+graduate to the production-grade HuggingFace PEFT library and apply it to a full
+complaint classifier (DistilBERT for sequence classification). We then demonstrate
+QLoRA (4-bit quantized base model + LoRA adapters) and soft prompts (prefix tuning)
+as alternative PEFT strategies, and close with a Tier 2 hard capstone lab where
+students pick any PEFT method and fine-tune a complaint classifier on a GPU
+SageMaker job.
 
-Because this is the LAST topic of Day 2, it carries the mandatory Tier 3 open-ended
-lab. There is no verification cell on the Tier 3 lab -- students choose their own PEFT
-method and implement the full training loop themselves.
+Because Topic 8 is the LAST topic of Day 3, T8 owns the Day 3 Tier 3 capstone.
+Topic 7b therefore carries NO Tier 3 lab: Lab 1 = Tier 1, QLoRA Lab = Tier 2,
+Capstone = Tier 2 hard. The capstone has no auto-verification cell -- students
+submit a SageMaker job and the instructor reviews the logs.
 
 Estimated in-class time: 90 to 120 minutes (excluding SageMaker job runtime).
 
@@ -20,7 +22,7 @@ Estimated in-class time: 90 to 120 minutes (excluding SageMaker job runtime).
 
 ## Diagram Index
 
-Diagram 1: slug=peft-methods-comparison, path=plans/topic_7b/diagrams/peft-methods-comparison.mmd
+Diagram 1: slug=peft-methods-comparison, path=plans/topic_7b_peft_lora_distilbert/diagrams/peft-methods-comparison.mmd
   Description: Side-by-side comparison of three PEFT methods applied to a transformer
   encoder block. Left panel (LoRA): frozen weight matrix W with low-rank matrices A
   and B alongside it; output = Wx + BAx; trainable params shown as small orange boxes.
@@ -31,7 +33,7 @@ Diagram 1: slug=peft-methods-comparison, path=plans/topic_7b/diagrams/peft-metho
   is fully frozen. Below each panel: a parameter efficiency bar showing relative
   trainable parameter count (LoRA ~0.5-1%, QLoRA ~0.5-1%, Soft Prompts ~0.01-0.1%).
 
-Diagram 2: slug=qlora-architecture, path=plans/topic_7b/diagrams/qlora-architecture.mmd
+Diagram 2: slug=qlora-architecture, path=plans/topic_7b_peft_lora_distilbert/diagrams/qlora-architecture.mmd
   Description: Detailed QLoRA architecture for a single transformer attention block.
   Top: "Base model weights stored in NF4 (4-bit)" block in dark grey. Arrow labeled
   "dequantize to float16 (forward pass only)" leads to the float16 computation box.
@@ -346,7 +348,7 @@ New variables introduced in Topic 7b that downstream cells depend on:
 ```
 # Topic 7b - PEFT LoRA on DistilBERT
 
-Barclays Customer Support Intelligence System | Day 2, Topic 7b (Last Topic)
+Barclays Customer Support Intelligence System | Topic 7b
 
 ## What you will build
 
@@ -514,7 +516,7 @@ print("The PEFT library solves all three problems in 5 lines of code.")
 
 ```
 <!-- DIAGRAM: PEFT methods comparison (LoRA, QLoRA, Soft Prompts) showing parameter efficiency of each -->
-[View diagram](../../plans/topic_7b/diagrams/peft-methods-comparison.mmd)
+[View diagram](../../plans/topic_7b_peft_lora_distilbert/diagrams/peft-methods-comparison.mmd)
 
 The diagram above shows how each PEFT method modifies (or does not modify) the weight
 matrices of a transformer block, and the relative trainable parameter count for each.
@@ -793,7 +795,7 @@ except (ImportError, RuntimeError, ValueError) as e:
 
 ```
 <!-- DIAGRAM: QLoRA architecture showing 4-bit NF4 base model with float16 LoRA adapters -->
-[View diagram](../../plans/topic_7b/diagrams/qlora-architecture.mmd)
+[View diagram](../../plans/topic_7b_peft_lora_distilbert/diagrams/qlora-architecture.mmd)
 
 The diagram above shows the QLoRA forward pass. The base model weights (grey) are stored
 in 4-bit NF4 format. Before each matrix multiply, they are dequantized to float16 on
@@ -860,11 +862,12 @@ print("  Memory saved: ~10x reduction in base model footprint")
 ### Cell 18: markdown - Beat 4: QLoRA Lab (Tier 3, Open-Ended)
 
 ```
-## Lab 2 -- Apply QLoRA to a Different DistilBERT Layer Configuration (Tier 3, ~25 min)
+## Lab 2 -- Apply QLoRA to a Different DistilBERT Layer Configuration (Tier 2 - Hard, ~25 min)
 
-This is a Tier 3 open-ended lab. There are no numbered steps and no YOUR CODE hints
-beyond the function signature and docstring. You decide which layers to target and what
-rank to use. Document your reasoning in a markdown cell before you write any code.
+This is a Tier 2 hard lab. You get 3-5 numbered step comments guiding the
+implementation but the steps are less prescriptive than a Tier 1 lab. YOUR CODE
+stubs are provided in the starter cell. Document your layer-choice reasoning in a
+markdown cell before you write any code.
 
 ### Situation
 
@@ -890,15 +893,15 @@ that would run on a GPU instance.
 
 ### Constraints
 
-- No numbered steps -- you decide the implementation
-- No YOUR CODE placeholders -- start from the signature and docstring only
+- Follow the 3-5 numbered step comments in the starter cell
+- Fill in the YOUR CODE stubs provided
 - No evaluate library -- use inline numpy metrics if you compute accuracy
 - numpy<2 requirement applies
 ```
 
 ---
 
-### Cell 19: code - Lab 2 QLoRA Tier 3 Starter
+### Cell 19: code - Lab 2 QLoRA Tier 2 Starter
 
 ```python
 def build_qlora_model(
@@ -936,7 +939,26 @@ def build_qlora_model(
     trainable_params : int, number of trainable parameters in peft_model.
     total_params : int, total parameters in peft_model.
     """
-    pass
+    # Step 1: Detect CUDA availability and pick the loading path.
+    # If torch.cuda.is_available(), build a BitsAndBytesConfig for 4-bit NF4 loading.
+    # Otherwise, skip quantization and load the base model in float32.
+    base_model = None  # YOUR CODE
+
+    # Step 2: Build the LoraConfig with TaskType.SEQ_CLS, the supplied lora_r and
+    # lora_alpha, the supplied target_modules, lora_dropout=0.1, bias="none",
+    # and modules_to_save=["classifier", "pre_classifier"].
+    lora_config = None  # YOUR CODE
+
+    # Step 3: Wrap the base model with get_peft_model.
+    peft_model = None  # YOUR CODE
+
+    # Step 4: Count trainable and total parameters using the standard
+    #   sum(p.numel() for p in peft_model.parameters() ...) pattern.
+    trainable_params = None  # YOUR CODE
+    total_params = None  # YOUR CODE
+
+    # Step 5: Return the tuple (peft_model, trainable_params, total_params).
+    return None  # YOUR CODE
 ```
 
 ---
@@ -958,6 +980,24 @@ target_modules (pass them as a hyperparameter or edit train.py) and one with the
 default q_lin + v_lin. Compare eval_accuracy from CloudWatch. Write a short report
 (3-5 sentences) explaining whether your hypothesis was correct and what you would
 change in a second iteration.
+```
+
+---
+
+### Cell 20b: markdown - Peer Discussion: QLoRA vs Soft Prompts (3 min)
+
+Cell type: markdown
+
+Content:
+
+```
+**Peer Discussion (3 min)**
+
+Before we look at soft prompts, reflect on what we just saw with QLoRA:
+
+1. QLoRA uses 4-bit quantization to cut memory by 75%. When would you NOT use it at Barclays, despite the savings?
+2. LoRA adapts weight matrices; soft prompts adapt the input space. Which approach would you prefer for a model you cannot retrain from scratch?
+3. If you had to deploy 20 different complaint-routing adapters for 20 Barclays departments, which technique stores more efficiently: LoRA, QLoRA, or soft prompts?
 ```
 
 ---
@@ -1060,6 +1100,54 @@ print("The 10 virtual tokens each have dim=768 --> 7,680 learned values in total
 
 ---
 
+### Cell 23b: markdown - Beat 4: Soft Prompt Lab (Tier 1 guided, ~10 min)
+
+```
+**Lab 1b - Configure a Soft Prompt for Barclays Complaint Routing (Tier 1 - Guided)**
+
+Situation: The Barclays team wants to test prefix tuning as a lightweight alternative to LoRA
+for routing complaints to the right department (cards, payments, fraud).
+
+Task: Configure a PromptTuningConfig for the complaint classifier and verify the virtual token count.
+
+Steps:
+1. Create a PromptTuningConfig with task_type=SEQ_CLS, num_virtual_tokens=20
+2. Wrap the base model with get_peft_model(model, config)
+3. Count trainable parameters and confirm they are only the virtual tokens
+```
+
+---
+
+### Cell 23c: code - Soft Prompt Lab Starter Code
+
+```python
+from peft import PromptTuningConfig, TaskType, get_peft_model
+
+# Step 1: create the config
+prompt_config = None  # YOUR CODE
+# Step 2: wrap the model
+prompt_model = None  # YOUR CODE
+# Step 3: count trainable params
+trainable = None  # YOUR CODE
+print(f"Trainable parameters: {trainable:,}")
+```
+
+---
+
+### Cell 23d: code - Soft Prompt Lab Safety-Net
+
+```python
+# Safety-net: run this if you did not finish the soft prompt lab.
+if prompt_model is None:
+    from peft import PromptTuningConfig, TaskType, get_peft_model
+    _cfg = PromptTuningConfig(task_type=TaskType.SEQ_CLS, num_virtual_tokens=20)
+    prompt_model = get_peft_model(base_model, _cfg)
+    trainable = sum(p.numel() for p in prompt_model.parameters() if p.requires_grad)
+    print("Using soft prompt safety-net.")
+```
+
+---
+
 ### Cell 24: code - Beat 3: Parameter Count Comparison Table
 
 ```python
@@ -1141,17 +1229,19 @@ The SageMaker job uses:
 
 ### Cell 27: code - SageMaker Session and Script Upload
 
-```python
-# Section 4 setup: verify session and show the training script structure.
-import os
-import sagemaker
-from sagemaker import get_execution_role
+Note: This cell REUSES the `sess`, `role`, `bucket`, and `region` variables already
+defined in Cell 1 (Environment Setup). It does NOT redefine them -- that would
+create a second SageMaker session for no reason. The cell only verifies the
+existing session and prints the training script structure.
 
-sess   = sagemaker.Session()
-role   = get_execution_role()
-bucket = sess.default_bucket()
+```python
+# Section 4 setup: verify the existing SageMaker session (sess, role, bucket, region
+# were defined in Cell 1) and show the training script structure.
+import os
 
 print(f"Training will run on: ml.g4dn.xlarge (NVIDIA T4, 16GB VRAM)")
+print(f"Region:               {region}")
+print(f"Role:                 {role}")
 print(f"Artifacts will land in: s3://{bucket}/topic7b-peft/")
 print()
 print("scripts_topic7b/ structure:")
@@ -1283,10 +1373,13 @@ print("to see epoch-by-epoch eval_accuracy printed by the Trainer.")
 ### Cell 32: markdown - Tier 3 Capstone Lab
 
 ```
-## Capstone Lab -- Design Your Own PEFT Complaint Classifier (Tier 3, Open-Ended)
+## Capstone Lab -- Design Your Own PEFT Complaint Classifier (Tier 2 - Hard)
 
-This is the Day 2 capstone. There are no numbered steps, no YOUR CODE placeholders,
-and no verification cell. You design and implement the full solution.
+This is the Day 2 capstone. It is a Tier 2 hard lab: the starter code provides 3-5
+numbered step comments and YOUR CODE stubs that guide the overall structure, but the
+specific PEFT method choice, hyperparameters, and SageMaker estimator configuration
+are yours to design. There is no auto-verification cell -- you submit a SageMaker job
+and the instructor reviews the logs.
 
 ---
 
@@ -1354,7 +1447,25 @@ def train_peft_complaint_classifier(
         "trainable_params" -- int, number of trainable parameters
         "total_params"     -- int, total model parameters
     """
-    pass
+    # Step 1: Tokenize train_texts with AutoTokenizer.from_pretrained(model_name).
+    tokenized = None  # YOUR CODE
+
+    # Step 2: Build the base AutoModelForSequenceClassification with the right num_labels
+    # inferred from the unique values in train_labels.
+    base_model = None  # YOUR CODE
+
+    # Step 3: Branch on peft_method ("lora" | "qlora" | "prefix_tuning") and build the
+    # matching PEFT config + wrap with get_peft_model.
+    peft_model = None  # YOUR CODE
+
+    # Step 4: Train with HuggingFace Trainer (eval_strategy="epoch", inline numpy metrics,
+    # no evaluate library). Compute the validation accuracy at the end.
+    accuracy = None  # YOUR CODE
+
+    # Step 5: Count trainable / total parameters and return the summary dict.
+    trainable_params = None  # YOUR CODE
+    total_params = None  # YOUR CODE
+    return None  # YOUR CODE
 ```
 
 ---
@@ -1384,20 +1495,20 @@ LoRA adapters can be merged back into the base model weights after training usin
 
 ---
 
-### Cell 35: markdown - Wrap-Up and Bridge to Day 3
+### Cell 35: markdown - Topic 7b Wrap-Up
 
 ```
-## Wrap-Up -- Day 2 Complete
+## Topic 7b Wrap-Up
 
-### What you built today (Day 2 summary)
+### What you built in this topic
 
-| Topic | What you built |
-|-------|----------------|
-| 5     | HuggingFace ecosystem: pipelines, AutoModel, Hub |
-| 6a    | Full fine-tuning of DistilBERT; saw catastrophic forgetting |
-| 6b    | Transfer learning: freeze all but the head; CPU SageMaker job |
-| 7a    | LoRA from scratch: A and B low-rank matrices on feed-forward layers |
-| 7b    | PEFT library: LoRA, QLoRA, soft prompts; GPU SageMaker capstone |
+- Applied the HuggingFace PEFT library (LoraConfig + get_peft_model) to DistilBERT
+  for complaint classification, with only ~0.5-1% of parameters trainable.
+- Explored QLoRA: 4-bit NF4 quantized base model + LoRA adapters, fitting larger
+  models on the same T4 GPU.
+- Configured soft prompts / prefix tuning as an even lighter alternative to LoRA.
+- Launched and monitored a GPU fine-tuning job on SageMaker (ml.g4dn.xlarge).
+- Compared trainable parameter counts across LoRA, QLoRA, soft prompts, and full FT.
 
 ### Key PEFT takeaways
 
@@ -1409,36 +1520,33 @@ LoRA adapters can be merged back into the base model weights after training usin
 - eval_strategy="epoch" (not evaluation_strategy) -- transformers 4.41+ required.
 - Never use the evaluate library -- use inline numpy compute_metrics.
 
-### Day 3 preview
+### Bridge to Topic 8
 
-Tomorrow we deploy what we trained. Day 3 covers:
-  - Quantization, pruning, and distillation (Topic 8)
-  - RLHF and reward modeling (Topic 9)
-
-The DistilBERT classifier you just fine-tuned will be the model we quantize in Topic 8.
-Save the training_job_name -- you will need the S3 artifact URI in the first cell of Topic 8.
+Next: Topic 8 - Quantization. We take a pretrained classifier and shrink its
+footprint with post-training quantization, pruning, and distillation so it can
+run on smaller, cheaper instances at inference time.
 
 ### Homework
 
-Complete the Homework Extensions from Labs 1 and the Capstone before Day 3.
+Complete the Homework Extensions from Labs 1 and the Capstone before moving on.
 ```
 
 ---
 
 ## Notes on Cell Count and Structure
 
-Total planned cells: 36 (Cell 0 through Cell 35).
+Total planned cells: 40 (Cell 0 through Cell 35, plus inserted Cells 20b, 23b, 23c, 23d).
 
 Section breakdown:
 - Cells 0-2:   Title, environment setup, imports (3 cells)
 - Cells 3-12:  Section 1 -- PEFT library LoRA (10 cells: Beat1, Beat2, Beat3x2, Lab1x4)
 - Cell 13:     Discussion prompt (1 cell)
-- Cells 14-20: Section 2 -- QLoRA (7 cells: intro+Beat1, Beat2, Beat3, Lab2 Beat4 x3)
-- Cells 21-24: Section 3 -- Soft Prompts (4 cells: intro+Beat1, Beat3x2, comparison table)
+- Cells 14-20 (+20b): Section 2 -- QLoRA (7 cells: intro+Beat1, Beat2, Beat3, Lab2 Beat4 x3) + 1 peer discussion bridge cell
+- Cells 21-24 (+23b, 23c, 23d): Section 3 -- Soft Prompts (7 cells: intro+Beat1, Beat3x2, Beat4 lab x3, comparison table)
 - Cell 25:     Discussion prompt (1 cell)
 - Cells 26-31: Section 4 -- SageMaker Capstone (6 cells: intro, session, launch, safety-net, poll, metrics)
 - Cells 32-34: Tier 3 Capstone Lab (markdown + starter code + stretch/homework) (3 cells)
-- Cell 35:     Wrap-up and bridge to Day 3 (1 cell)
+- Cell 35:     Topic 7b wrap-up and bridge to Topic 8 (1 cell)
 
 ### Markdown chain check
 
@@ -1459,9 +1567,10 @@ No sequence of more than 3 consecutive markdown cells exists:
 - Topic 6a: Tier 1 (guided) labs -- handled in topic_6a notebook
 - Topic 6b: Tier 1 (guided) labs -- handled in topic_6b notebook
 - Topic 7a: Tier 1 (guided) labs -- handled in topic_7a notebook
-- Topic 7b: Tier 1 Lab 1 (Cells 8-12) + Tier 3 Lab 2 QLoRA (Cells 18-20) + Tier 3 Capstone (Cells 32-34) -- CORRECT
-  Day 2 gets exactly ONE Tier 3 lab, which must be the last topic. Topic 7b is last. PASS.
-  QLoRA Beat 4 (Lab 2) is Tier 3: open-ended, function signature + docstring + pass only. PASS.
+- Topic 7b: Tier 1 Lab 1 (Cells 8-12) + Tier 2 Lab 2 QLoRA (Cells 18-20) + Tier 2 Capstone (Cells 32-34) -- CORRECT
+  Topic 7b is on Day 3 (T7a + T7b + T8 all Day 3). Day 3 Tier 3 lives in T8 (last topic of Day 3).
+  T7b therefore carries NO Tier 3. Lab tier: Lab 1 = Tier 1, QLoRA Lab = Tier 2, Capstone = Tier 2. PASS.
+  QLoRA Beat 4 (Lab 2) is Tier 2 hard: 3-5 numbered step comments plus YOUR CODE stubs. PASS.
 
 ### Safety-net check
 

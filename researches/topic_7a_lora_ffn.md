@@ -26,7 +26,7 @@ before trusting it on a real LLM.
 
 ## Diagram Index
 
-Diagram 1: slug=lora-decomposition, path=plans/topic_7a/diagrams/lora-decomposition.mmd
+Diagram 1: slug=lora-decomposition, path=plans/topic_7a_lora_ffn/diagrams/lora-decomposition.mmd
   Description: LoRA low-rank decomposition of a single weight matrix. Left box shows the
   original frozen weight matrix W (d x k) shaded gray with label "Frozen W (no gradient)".
   Center shows the additive formula: W' = W + (B @ A). Right side shows two green boxes
@@ -36,7 +36,7 @@ Diagram 1: slug=lora-decomposition, path=plans/topic_7a/diagrams/lora-decomposit
   LoRA parameter count: 512*8 + 8*1024=12288. Label the ratio "~43x fewer parameters".
   Use neutral ASCII-style box notation in Mermaid (flowchart LR with subgraphs).
 
-Diagram 2: slug=lora-parameter-comparison, path=plans/topic_7a/diagrams/lora-parameter-comparison.mmd
+Diagram 2: slug=lora-parameter-comparison, path=plans/topic_7a_lora_ffn/diagrams/lora-parameter-comparison.mmd
   Description: Bar chart comparing trainable parameter counts across three fine-tuning
   strategies applied to Flan-T5-small (250M parameters total). Bar 1: "Full Fine-Tuning"
   shows all 250M parameters highlighted as trainable. Bar 2: "Head-only (Transfer)" shows
@@ -469,7 +469,7 @@ New variables introduced in Topic 7a that downstream cells depend on:
 ```
 # Topic 7a - LoRA on Feed-Forward Networks
 
-Barclays Customer Support Intelligence System | Day 2, Topic 7a
+Barclays Customer Support Intelligence System | Topic 7a
 
 ## What you will build
 
@@ -677,7 +677,7 @@ The scaling factor lora_alpha / r controls how much the LoRA update contributes
 relative to the frozen weight. A common heuristic is alpha = 2 * r.
 
 <!-- DIAGRAM: LoRA decomposition showing frozen W in gray, low-rank matrices A and B in green, update formula W' = W + BA, with concrete dimension labels r=8 d=512 k=1024 showing 43x parameter reduction -->
-[View diagram](../../plans/topic_7a/diagrams/lora-decomposition.mmd)
+[View diagram](../../plans/topic_7a_lora_ffn/diagrams/lora-decomposition.mmd)
 ```
 
 ---
@@ -940,7 +940,7 @@ Parameter comparison diagram below shows what happens to trainable parameter
 count when we swap linear layers for LoRA-wrapped ones.
 
 <!-- DIAGRAM: Bar chart comparing trainable parameter counts for full fine-tuning vs head-only transfer vs LoRA (r=8) on Flan-T5-small, showing LoRA trains less than 0.3% of parameters -->
-[View diagram](../../plans/topic_7a/diagrams/lora-parameter-comparison.mmd)
+[View diagram](../../plans/topic_7a_lora_ffn/diagrams/lora-parameter-comparison.mmd)
 ```
 
 ---
@@ -1706,11 +1706,11 @@ LoRA with 8-bit quantisation (QLoRA) to fit even larger models on the same T4 GP
 
 ### The Barclays system so far
 
-Day 2 has added:
+Recent topics have added:
 - Topic 6a: Full fine-tuning Flan-T5 (all params updated, catastrophic forgetting demo)
 - Topic 6b: Transfer learning DistilBERT (frozen backbone, head only)
 - Topic 7a: LoRA on FFN + Flan-T5 (freeze everything, two matrices per layer)
-- Next: Topic 7b: PEFT LoRA + quantisation on DistilBERT
+- Next: Topic 7b - PEFT and LoRA with DistilBERT
 ```
 
 ---

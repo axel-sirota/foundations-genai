@@ -19,8 +19,25 @@ produces a deployable INT8 DistilBERT complaint classifier, then serves it on
 an ml.m5.xlarge SageMaker endpoint.
 
 Estimated in-class time: 90 to 120 minutes.
-Lab tier for Day 3: Topic 8 carries the Tier 2 hard lab (QAT training loop).
-All other labs in this topic are Tier 1 guided.
+Lab tier for Day 3: Topic 8 is the LAST topic of Day 3 and carries BOTH the Tier 2
+hard lab (QAT training loop) and the Day 3 Tier 3 open-ended capstone (end-to-end
+compression pipeline). The remaining labs in this topic are Tier 1 guided.
+
+---
+
+## Variable Continuity from Topic 7b
+
+Variables carried forward (re-defined in T8 Cell 2 for self-containment):
+- `tokenizer`: DistilBERT tokenizer -- re-loaded from HuggingFace Hub (not from T7b kernel state)
+- `baseline_model`: fresh `distilbert-base-uncased` loaded for compression demos
+  Note: in production the T7b PEFT adapter artifact would be the input; here we use a
+  fresh pretrained model for didactic simplicity so students can run T8 standalone.
+- `sess`, `role`, `bucket`, `region`: re-defined in Cell 1 setup (same pattern as all prior topics)
+- `device`, `set_seeds`: re-defined in Cell 1
+
+Variables NOT carried forward (T8 defines its own):
+- `peft_model`, `qlora_model`, `prefix_model` from T7b -- not used in T8
+- `lora_r` from T7a/T7b -- not used in T8
 
 ---
 
@@ -28,7 +45,7 @@ All other labs in this topic are Tier 1 guided.
 
 Diagram 1:
   slug=quantization-precision-tradeoffs
-  path=plans/topic_8/diagrams/quantization-precision-tradeoffs.mmd
+  path=plans/topic_8_quantization/diagrams/quantization-precision-tradeoffs.mmd
   Description: Side-by-side comparison of four numeric precision formats:
   FP32 (32 bits, memory 4 bytes per weight, accuracy loss ~0%, use case: training),
   FP16/BF16 (16 bits, 2 bytes per weight, accuracy loss ~0.5%, use case: mixed precision training + serving),
@@ -40,7 +57,7 @@ Diagram 1:
 
 Diagram 2:
   slug=knowledge-distillation-architecture
-  path=plans/topic_8/diagrams/knowledge-distillation-architecture.mmd
+  path=plans/topic_8_quantization/diagrams/knowledge-distillation-architecture.mmd
   Description: Two-path training diagram. Left path: Hard labels (one-hot ground truth) flow
   into a Cross-Entropy loss box. Right path: Teacher model (large, frozen, BERT-base) feeds
   logits through Temperature T scaling into Softmax, producing Soft Labels. Student model
@@ -360,6 +377,7 @@ if __name__ == "__main__":
 ```
 peft>=0.6.0
 bitsandbytes>=0.41.0
+datasets==2.18.0
 numpy<2
 ```
 
@@ -396,20 +414,20 @@ numpy<2
 
 ## Cell-by-Cell Plan
 
-### Cell 0: markdown - Title and Day 3 Context
+### Cell 0: markdown - Title and Topic Context
 
 Type: markdown
 
 Content outline:
   # Topic 8: Quantization, Pruning and Distillation
-  ## Barclays Customer Support Intelligence System -- Day 3
+  ## Barclays Customer Support Intelligence System
 
-  Opening narrative: "We now have a fine-tuned DistilBERT complaint classifier from Days 1 and 2.
+  Opening narrative: "We now have a fine-tuned DistilBERT complaint classifier from earlier topics.
   It achieves 91% accuracy on banking77. Problem: it is 260 MB, takes 80ms per inference on CPU,
   and costs $0.074/hour to serve on a dedicated endpoint. That is unacceptable for a
   Barclays production system handling 10,000 complaints per day."
 
-  Day 3 goal: reduce the model to under 80 MB, under 20ms inference, and under $0.03/hour serving cost.
+  Topic 8 goal: reduce the model to under 80 MB, under 20ms inference, and under $0.03/hour serving cost.
 
   Three tools we will use:
     1. Quantization -- reduce weight precision from FP32 to INT8
@@ -637,7 +655,7 @@ Content outline:
   so the model learns to be robust to the rounding errors before they happen for real.
 
   <!-- DIAGRAM: quantization-precision-tradeoffs -->
-  [View diagram](../../plans/topic_8/diagrams/quantization-precision-tradeoffs.mmd)
+  [View diagram](../../plans/topic_8_quantization/diagrams/quantization-precision-tradeoffs.mmd)
 
 ---
 
@@ -768,7 +786,8 @@ dynamic_latencies = []
 for _ in range(20):
     start = time.perf_counter()
     with torch.no_grad():
-        _ = None  # YOUR CODE: run inference with dynamic_quantized_model
+        # Hint: run inference with dynamic_quantized_model on inputs
+        _ = None  # YOUR CODE
     dynamic_latencies.append((time.perf_counter() - start) * 1000)
 avg_ms_dynamic = np.mean(dynamic_latencies)
 print(f"Dynamic quantized avg latency: {avg_ms_dynamic:.1f} ms  (baseline: {avg_ms:.1f} ms)")
@@ -829,6 +848,24 @@ Content outline:
   )
   ```
   Question to explore: Can you fine-tune a 4-bit model with LoRA? What accuracy tradeoff do you see?
+
+---
+
+### Cell 11b: markdown - Peer Discussion: Quantization Tradeoffs (3 min)
+
+Type: markdown
+
+Content:
+
+```
+**Peer Discussion (3 min)**
+
+We just saw dynamic quantization cut model size by ~4x with minimal accuracy loss:
+
+1. Barclays runs 50 NLP models in production. Which ones would you quantize first and why?
+2. Dynamic quantization works at inference time. What are the risks of quantizing a model that was fine-tuned on imbalanced complaint data?
+3. INT8 loses some precision. For a fraud detection model, is a 0.5% accuracy drop acceptable? How would you decide?
+```
 
 ---
 
@@ -1024,15 +1061,18 @@ parameters_to_prune = [
 ]
 
 # Step 1: Apply global L1 unstructured pruning (30% of all weights across all layers)
-None  # YOUR CODE: call prune.global_unstructured(...)
+# Hint: call prune.global_unstructured(...) with the parameters_to_prune list
+None  # YOUR CODE
 
 # Step 2: Make pruning permanent
 for module, param_name in parameters_to_prune:
-    None  # YOUR CODE: call prune.remove(module, param_name)
+    # Hint: call prune.remove(module, param_name) to bake in the mask
+    None  # YOUR CODE
 
 # Step 3: Compute global sparsity
 global_pruned_model.eval()
-sparsity_pct = None  # YOUR CODE: compute (zeros / total) * 100
+# Hint: compute (zeros / total) * 100 across all parameters
+sparsity_pct = None  # YOUR CODE
 print(f"Global sparsity: {sparsity_pct:.2f}%")
 
 # Step 4: Check predictions
@@ -1126,7 +1166,7 @@ Content outline:
 
   Temperature scaling controls how "soft" the teacher's distribution is:
     T=1 : standard softmax -- teacher is confident, student sees near-hard labels
-    T=4 : flurs the distribution -- more relative information between classes transfers
+    T=4 : blurs the distribution -- more relative information between classes transfers
 
 ---
 
@@ -1243,7 +1283,7 @@ Content outline:
   are nearly identical to hard labels and the student learns nothing extra from the teacher.
 
   <!-- DIAGRAM: knowledge-distillation-architecture -->
-  [View diagram](../../plans/topic_8/diagrams/knowledge-distillation-architecture.mmd)
+  [View diagram](../../plans/topic_8_quantization/diagrams/knowledge-distillation-architecture.mmd)
 
 ---
 
@@ -1389,10 +1429,12 @@ kl_results = {}
 
 for T in temperatures:
     # Step 1: Teacher soft labels at temperature T
-    teacher_soft = None  # YOUR CODE: F.softmax(teacher_logits / T, dim=-1)
+    # Hint: apply F.softmax(logits / T, dim=-1) to get soft probabilities
+    teacher_soft = None  # YOUR CODE
 
     # Step 2: Student log-soft labels at temperature T
-    student_log_soft = None  # YOUR CODE: F.log_softmax(student_logits / T, dim=-1)
+    # Hint: apply F.log_softmax(logits / T, dim=-1) for the student side
+    student_log_soft = None  # YOUR CODE
 
     # Step 3: KL divergence (scale by T^2 as per Hinton et al. 2015)
     kl = None  # YOUR CODE
@@ -1606,7 +1648,27 @@ print()
 
 # Non-blocking launch -- move on to the endpoint demo while training runs
 estimator.fit(wait=False)
-print(f"Job launched. Training job name: {estimator.latest_training_job.name}")
+training_job_name = estimator.latest_training_job.name
+print(f"Job launched. Training job name: {training_job_name}")
+```
+
+---
+
+### Cell 33b: code - training_job_name Safety-Net
+
+Type: code
+
+Purpose: if the kernel restarted after launching the training job, restore the
+`training_job_name` variable so downstream cells (poll status, retrieve metrics,
+deploy endpoint) can still run without relaunching the job.
+
+Content outline:
+```python
+# Safety-net: run this if your kernel restarted after launching the training job.
+# SKIP this cell if training_job_name is already defined.
+if 'training_job_name' not in dir() or training_job_name is None:
+    training_job_name = "<PASTE YOUR JOB NAME HERE>"
+    print(f"Using safety-net training_job_name: {training_job_name}")
 ```
 
 ---
@@ -1975,6 +2037,50 @@ print("Chart saved to topic8_model_comparison.png")
 
 ---
 
+### Cell 44b: markdown - Tier 3 Capstone: End-to-End Model Compression Pipeline (Open-Ended)
+
+Cell type: markdown (lab header)
+Content:
+**Capstone Lab -- Build a Barclays Model Compression Pipeline (Tier 3 - Open-Ended)**
+
+The Barclays ML platform team needs a single function that takes a fine-tuned DistilBERT
+complaint classifier and returns a compressed, serving-ready version using the best
+combination of quantization, pruning, and/or distillation for the given size/latency target.
+
+Your function must:
+- Accept a model, tokenizer, and a target (either "size" or "latency")
+- Apply at least one compression technique from this topic
+- Return the compressed model and a metrics dict with keys: "size_mb", "accuracy", "technique"
+
+No hints. No numbered steps. Design your own pipeline.
+
+---
+
+### Cell 44c: code - Tier 3 Capstone starter code
+
+Cell type: code
+Content:
+```python
+def compress_model(model, tokenizer, dataset, target="size", device="cpu"):
+    """
+    Build a compression pipeline for the Barclays complaint classifier.
+
+    Args:
+        model: fine-tuned DistilBERT model
+        tokenizer: matching tokenizer
+        dataset: validation dataset for accuracy measurement
+        target: "size" (minimise model size) or "latency" (minimise inference time)
+        device: "cpu" or "cuda"
+
+    Returns:
+        compressed_model: the compressed model ready for serving
+        metrics: dict with keys "size_mb" (float), "accuracy" (float), "technique" (str)
+    """
+    pass  # YOUR CODE
+```
+
+---
+
 ### Cell 45: markdown - Peer Discussion: Production Decision
 
 Type: markdown
@@ -2085,7 +2191,8 @@ Key facts used:
   - Beat 4 (lab): Cells 8-11 (Lab 1), Cells 16-19 (Lab 2), Cells 25-28 (Lab 3)
 - [x] Exactly 2 diagrams indexed with slug + path + description
 - [x] Tier 2 hard lab clearly marked (Cells 31, 36-38: QAT training loop, 25-35 min)
-- [x] No Tier 3 lab in Topic 8 (Topic 9 only, and Topic 9 is parked)
+- [x] Tier 3 open-ended capstone added (Cells 44b-44c: end-to-end compression pipeline)
+- [x] Tier distribution: Tier 1 x3 (Labs 1, 2, 3), Tier 2 x1 (QAT capstone), Tier 3 x1 (compression pipeline)
 - [x] Every lab has stretch + Homework Extension
 - [x] Safety-net cells after Lab 1 (Cell 10) and Lab 3 (Cell 27)
 - [x] Lab 2 does NOT need safety-net (global_pruned_model not used in downstream cells)
@@ -2098,12 +2205,12 @@ Key facts used:
 - [x] Endpoint on ml.m5.xlarge (NOT ml.c5.large) -- Cell 40
 - [x] transformers_version="4.56.2", pytorch_version="2.8.0", py_version="py312" -- Cell 33
 - [x] SageMaker SDK pinned >=2.200.0,<3.0.0 -- Cell 1
-- [x] requirements.txt (exact name) with peft>=0.6.0, bitsandbytes>=0.41.0, numpy<2
+- [x] requirements.txt (exact name) with peft>=0.6.0, bitsandbytes>=0.41.0, datasets==2.18.0, numpy<2
 - [x] boto3 exception: ResourceNotFound (not ResourceNotFoundException) -- Cells 35, 42
 - [x] No em dashes, en dashes, unicode mult, emojis -- plan uses plain ASCII only
 - [x] No more than 3 consecutive markdown cells without a code cell
 - [x] No AI-tells in cell content outlines
-- [x] Total cells: 47 (Cell 0 to Cell 46) -- within 45-55 target
+- [x] Total cells: 51 (Cell 0 to Cell 46 plus Cells 11b, 33b, 44b, and 44c) -- within 45-55 target
 - [x] Train.py: full content in Source Dir section above
 - [x] Requirements.txt: peft>=0.6.0, bitsandbytes>=0.41.0, numpy<2
 - [x] Base model: distilbert-base-uncased (matches course narrative from Topics 6b/7b)
