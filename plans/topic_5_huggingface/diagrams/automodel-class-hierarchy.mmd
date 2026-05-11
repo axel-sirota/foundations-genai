@@ -1,0 +1,11 @@
+flowchart TD
+    AM[AutoModel<br/>base, no head<br/>raw hidden states]
+    SC[AutoModelForSequenceClassification<br/>text-classification, sentiment<br/>distilbert-sst-2-english]
+    TC[AutoModelForTokenClassification<br/>NER, POS<br/>dslim/bert-base-NER]
+    CLM[AutoModelForCausalLM<br/>text-generation<br/>distilgpt2]
+    S2S[AutoModelForSeq2SeqLM<br/>translation, summarization<br/>Helsinki-NLP/opus-mt]
+
+    AM -->|+ classification head| SC
+    AM -->|+ token head| TC
+    AM -->|+ LM head| CLM
+    AM -->|+ encoder-decoder head| S2S

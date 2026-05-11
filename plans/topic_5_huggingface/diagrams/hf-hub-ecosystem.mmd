@@ -1,0 +1,24 @@
+flowchart TD
+    Hub[HuggingFace Hub]
+    Card[Model Card<br/>pipeline_tag<br/>library_name<br/>config.json]
+    Models[Models]
+    Datasets[Datasets<br/>load_dataset]
+    Spaces[Spaces<br/>Gradio / Streamlit]
+    Pipe[pipeline]
+    Auto[AutoClass]
+    AM[AutoModel]
+    AMSC[AutoModelForSequenceClassification]
+    AMTC[AutoModelForTokenClassification]
+    AMCLM[AutoModelForCausalLM]
+
+    Hub --> Card
+    Hub --> Models
+    Hub --> Datasets
+    Hub --> Spaces
+    Card --> Pipe
+    Models --> Pipe
+    Models --> Auto
+    Auto --> AM
+    Auto --> AMSC
+    Auto --> AMTC
+    Auto --> AMCLM
