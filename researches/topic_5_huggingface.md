@@ -901,6 +901,32 @@ print("This gap motivates fine-tuning on domain-specific data (Topic 6a).")
 
 ---
 
+### Cell 22b: markdown - Peer Discussion: pipeline() vs AutoModel in Production
+
+Content:
+```
+### Discussion (3-5 minutes)
+
+You have used pipeline() to run sentiment classification and zero-shot routing.
+You have also seen the raw AutoModel and AutoTokenizer pattern.
+Before we go deeper, discuss with a partner:
+
+- When would you choose pipeline() over AutoModel + AutoTokenizer in a production
+  Barclays system? What are the tradeoffs in terms of control, debuggability, and
+  deployment footprint?
+- The financial_phrasebank evaluation showed a ~70-80% accuracy gap vs 91.3% on SST-2.
+  In a regulated environment like Barclays, what is the minimum acceptable accuracy
+  threshold for automated complaint routing, and who decides?
+- pipeline() caches model weights in memory across calls. AutoModel does too, but
+  you control when you call .to(device) and .eval(). Why does that distinction matter
+  when you are running multiple models simultaneously on the same CPU instance?
+- If you had to explain to a Barclays InfoSec team why using a public pre-trained model
+  is acceptable for processing customer complaint text, what would your argument be?
+  What controls would you put in place?
+```
+
+---
+
 ### Cell 23: markdown - Section 4: AutoModel and AutoTokenizer
 
 Content:
@@ -934,23 +960,7 @@ The AutoClass hierarchy matches the model card pipeline_tag:
 
 ---
 
-### Cell 24: code - Beat 2: AutoModel Class Hierarchy Diagram
-
-Content:
-```
-<!-- DIAGRAM: AutoModel class hierarchy. Root: AutoModel (base, no head, raw hidden states). Four child nodes: (1) AutoModelForSequenceClassification -- text-classification, sentiment, zero-shot -- distilbert-finetuned-sst-2-english. (2) AutoModelForTokenClassification -- NER, POS -- dslim/bert-base-NER. (3) AutoModelForCausalLM -- text-generation -- distilgpt2. (4) AutoModelForSeq2SeqLM -- translation, summarization -- Helsinki-NLP/opus-mt-en-ROMANCE. Each child shows: "task head added on top of encoder". -->
-[View diagram](../../plans/topic_5/diagrams/automodel-class-hierarchy.mmd)
-
-Each AutoModelFor* class adds a thin task-specific head (one or two linear layers)
-on top of the shared encoder. The encoder weights are identical across all four classes
-for the same base model -- only the head differs.
-```
-
-Note: Cell 24 is a markdown cell (contains the DIAGRAM placeholder).
-
----
-
-### Cell 25: code - Beat 1: AutoModel vs AutoModelForSequenceClassification Shape Error
+### Cell 24: code - Beat 1: AutoModel vs AutoModelForSequenceClassification Shape Error
 
 ```python
 # Beat 1: What happens when you load AutoModel (no head) and try to classify?
@@ -994,6 +1004,22 @@ except Exception as e:
 print()
 print("FIX: use AutoModelForSequenceClassification to get logits over class labels (Beat 3).")
 ```
+
+---
+
+### Cell 25: markdown - Beat 2: AutoModel Class Hierarchy Diagram
+
+Content:
+```
+<!-- DIAGRAM: AutoModel class hierarchy. Root: AutoModel (base, no head, raw hidden states). Four child nodes: (1) AutoModelForSequenceClassification -- text-classification, sentiment, zero-shot -- distilbert-finetuned-sst-2-english. (2) AutoModelForTokenClassification -- NER, POS -- dslim/bert-base-NER. (3) AutoModelForCausalLM -- text-generation -- distilgpt2. (4) AutoModelForSeq2SeqLM -- translation, summarization -- Helsinki-NLP/opus-mt-en-ROMANCE. Each child shows: "task head added on top of encoder". -->
+[View diagram](../../plans/topic_5/diagrams/automodel-class-hierarchy.mmd)
+
+Each AutoModelFor* class adds a thin task-specific head (one or two linear layers)
+on top of the shared encoder. The encoder weights are identical across all four classes
+for the same base model -- only the head differs.
+```
+
+Note: Cell 25 is a markdown cell (contains the DIAGRAM placeholder).
 
 ---
 
@@ -1782,8 +1808,6 @@ The Hub models you used today are your starting points.
 
 Content:
 ```
----
-
 *End of Topic 5 - HuggingFace Ecosystem*
 
 Next session: Topic 6a - Full Fine-Tuning and Catastrophic Forgetting.

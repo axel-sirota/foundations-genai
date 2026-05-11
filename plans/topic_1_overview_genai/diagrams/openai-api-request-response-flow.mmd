@@ -1,0 +1,11 @@
+sequenceDiagram
+    participant nb as Notebook (client)
+    participant api as OpenAI API
+    participant model as gpt-4o model
+
+    nb->>api: HTTP POST /chat/completions\n{system_prompt, user_message, temperature}
+    api->>model: Route request to model instance
+    model->>model: Apply system prompt constraints
+    model->>model: Sample tokens\n(temperature shapes distribution)
+    model->>api: Completion tokens
+    api->>nb: JSON response\n{choices[0].message.content}

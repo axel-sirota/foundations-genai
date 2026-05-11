@@ -1,0 +1,13 @@
+graph TD
+    formula["PE(pos, 2i)   = sin(pos / 10000^(2i/d_model))\nPE(pos, 2i+1) = cos(pos / 10000^(2i/d_model))"]
+    formula --> props["Properties of sinusoidal encoding"]
+    props --> smooth["Smooth: nearby positions\nhave similar encoding vectors"]
+    props --> unique["Unique: every position\nhas a distinct encoding"]
+    props --> relative["Relative: PE(pos+k) can be\nexpressed as linear fn of PE(pos)"]
+    smooth --> model["Model can learn\n'this token is 3 steps before that one'"]
+    unique --> model
+    relative --> model
+    model --> benefit["No out-of-vocabulary positions:\nworks for any sequence length"]
+
+    style formula fill:#ffd,stroke:#aa3
+    style benefit fill:#dfd,stroke:#3a3

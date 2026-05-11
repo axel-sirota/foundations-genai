@@ -1,0 +1,15 @@
+graph TD
+    problem["Define the problem\n(what does success look like?)"] --> data["Collect and clean data\n(complaints, transactions, labels)"]
+    data --> embed["Embed text\n(encoder model -> dense vectors)"]
+    embed --> search["Semantic search\n(find similar complaints)"]
+    search --> choose{"Build or use\npretrained model?"}
+    choose -->|"Use as-is"| prompt["Prompt engineering\n(system prompt + examples)"]
+    choose -->|"Adapt"| finetune["Fine-tune\n(labeled data + training job)"]
+    prompt --> eval["Evaluate\n(accuracy, latency, cost)"]
+    finetune --> eval
+    eval --> deploy["Deploy to production\n(endpoint or batch job)"]
+    deploy --> monitor["Monitor and retrain\n(drift, new complaint types)"]
+
+    style embed fill:#ddf,stroke:#33c
+    style search fill:#ddf,stroke:#33c
+    style deploy fill:#dfd,stroke:#3a3

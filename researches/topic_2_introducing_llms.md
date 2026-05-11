@@ -8,9 +8,9 @@
 
 **Narrative thread (Day 1)**: "Building a Barclays Customer Support Intelligence System." In this topic students learn what an LLM is architecturally so that in Topics 3 and 4 they can build attention and a transformer from scratch, and in Day 2 they can fine-tune one. The concluding bridge is: "We know what LLMs are. In Topics 3 and 4 we build the attention and transformer machinery from scratch. Then in Day 2 we train them on Barclays data."
 
-**Estimated time**: 65-75 minutes in class.
+**Estimated time**: 55-65 minutes in class.
 - Setup + tokenization concept + Lab 1: ~20 min
-- Embeddings concept + Lab 2 (Tier 2): ~30 min
+- Embeddings concept + Lab 2 (Tier 1): ~20 min
 - Transformer families diagram + inference demo: ~10 min
 - GenAI lifecycle + wrap-up: ~10 min
 
@@ -654,13 +654,13 @@ print(f"  [0] vs [5] (mobile app -- SHOULD be low):        {sim_matrix[0,5]:.3f}
 
 ---
 
-### Cell 17: [type: markdown] - Lab 2 Instructions (Tier 2, Hard)
+### Cell 17: [type: markdown] - Lab 2 Instructions (Tier 1, Guided)
 
-**Purpose**: Embedding similarity lab -- the Tier 2 (hard) lab for Day 1.
+**Purpose**: Embedding similarity lab -- Tier 1 guided lab with numbered steps.
 
 **Content**:
 ```markdown
-## Lab 2 -- Complaint Similarity Matrix (Tier 2 Hard, ~25 min)
+## Lab 2 -- Complaint Similarity Matrix (Tier 1 Guided, ~15 min)
 
 **Situation**: The Barclays complaint routing team has a dataset of 10 complaints
 across different categories: card fraud, duplicate charges, mortgage delays,
@@ -674,25 +674,32 @@ and app feedback. They want to automatically identify which complaints are
 4. Finds the single most similar pair in the dataset (excluding self-similarity on the diagonal)
 5. Finds the single least similar pair
 
-**Action**: This is a Tier 2 lab -- the steps are less prescriptive. Use the `get_embedding`
-function defined above. Use `cosine_similarity` from sklearn (already imported).
-NumPy operations for finding the best pair: `np.fill_diagonal`, `np.unravel_index`, `np.argmax`.
+**Action**: Fill in the YOUR CODE sections below. Follow the numbered steps.
 
 **Result**: Print the most similar pair and least similar pair with their cosine scores.
 The most similar pair should be two complaints that describe card fraud in different words.
+
+### Steps
+1. Use a list comprehension calling `get_embedding(c)` on each complaint in `complaints_dataset`
+2. Use `np.stack(all_embeddings)` to build a matrix of shape (10, 768)
+3. Call `cosine_similarity(embeddings_matrix)` to get a (10, 10) similarity matrix
+4. Use `np.fill_diagonal(sim_matrix, 0.0)` to zero out self-similarity on the diagonal
+5. Use `np.argmax(sim_matrix)` on the flattened matrix, then `np.unravel_index(..., sim_matrix.shape)` to get the (row, col) index of the most similar pair
+6. Use `np.argmin(sim_matrix)` and `np.unravel_index` the same way for the least similar pair
+7. Print both pairs with their cosine scores
 ```
 
-**Notes**: No numbered steps -- students must figure out the numpy index operations on their own. This distinguishes Tier 2 from Tier 1. Timing: 25 min. Walk around. Timing: 1 min to read instructions.
+**Notes**: Numbered steps guide students through the numpy index operations. Walk around during the 15 minutes and help students who get stuck on `np.unravel_index`. Timing: 1 min to read instructions.
 
 ---
 
 ### Cell 18: [type: code] - Lab 2 Starter Code
 
-**Purpose**: Tier 2 lab with minimal scaffolding.
+**Purpose**: Tier 1 guided lab with numbered step comments matching the instructions cell.
 
 **Content**:
 ```python
-# Lab 2 -- Complaint Similarity Matrix (Tier 2)
+# Lab 2 -- Complaint Similarity Matrix (Tier 1)
 # Use get_embedding() and cosine_similarity() from above.
 
 complaints_dataset = [
@@ -744,7 +751,7 @@ if most_similar_idx is not None and least_similar_idx is not None:
     print(f"  Cosine similarity: {sim_matrix[p, q]:.4f}")
 ```
 
-**Notes**: `# YOUR CODE` blocks are at the right level of abstraction for Tier 2 -- they know WHAT to do but not HOW (which numpy calls to chain). No hints about unravel_index -- that is the discovery. Timing: 25 min for students.
+**Notes**: The numbered steps in the instructions map directly to the Step comments in the starter code. Students follow the steps in order. Timing: 15 min for students.
 
 ---
 
@@ -1853,7 +1860,7 @@ summarizer  = pipeline("summarization", model="sshleifer/distilbart-cnn-6-6")
 | Lab | Tier | Time | Variables for downstream |
 |-----|------|------|--------------------------|
 | Lab 1: Tokenization Explorer | Tier 1 (guided) | 15 min | `result_short`, `result_medium`, `result_long`, `analyze_complaint_tokens` |
-| Lab 2: Complaint Similarity Matrix | Tier 2 (hard) | 25 min | `all_embeddings`, `embeddings_matrix`, `sim_matrix`, `most_similar_idx`, `least_similar_idx` |
+| Lab 2: Complaint Similarity Matrix | Tier 1 (guided) | 15 min | `all_embeddings`, `embeddings_matrix`, `sim_matrix`, `most_similar_idx`, `least_similar_idx` |
 
 Safety-net cells: Cell 10 (Lab 1), Cell 20 (Lab 2).
 
@@ -1866,7 +1873,7 @@ Safety-net cells: Cell 10 (Lab 1), Cell 20 (Lab 2).
 | Setup + installs | 1-2 | 3 min |
 | Section 1: Tokenization + Lab 1 | 3-11 | 22 min |
 | Peer Discussion 1 | 12 | 3 min |
-| Section 2: Embeddings + Lab 2 | 13-21 | 35 min |
+| Section 2: Embeddings + Lab 2 | 13-21 | 25 min |
 | Peer Discussion 2 | 22 | 3 min |
 | Section 3: Transformer Families | 23-27 | 12 min |
 | Section 4: Model Landscape | 28-29 | 5 min |
@@ -1875,7 +1882,7 @@ Safety-net cells: Cell 10 (Lab 1), Cell 20 (Lab 2).
 | Section 6: Pipeline + Wrap-up | 33-38 | 12 min |
 | Knowledge check | 36 | 3 min |
 | Appendix (reference/stretch) | 39-44 | 0 min in-class |
-| **Total in-class** | | **~65-70 min** |
+| **Total in-class** | | **~55-60 min** |
 
 ---
 
@@ -1895,7 +1902,7 @@ Safety-net cells: Cell 10 (Lab 1), Cell 20 (Lab 2).
 - [x] STAR method applied to Lab 1 and Lab 2
 - [x] Peer discussion cells (Cells 12, 22, 32)
 - [x] Homework extension for both labs (Cells 11, 21)
-- [x] Lab tiers: Lab 1 = Tier 1, Lab 2 = Tier 2 (one Tier 2 per day, this is Day 1 second topic)
+- [x] Lab tiers: Lab 1 = Tier 1, Lab 2 = Tier 1 (no Tier 2 in this topic; Topic 1 holds the Day 1 Tier 2)
 - [x] Stretch version for both labs
 - [x] 40-44 cells in main notebook (44 total including appendix)
 - [x] Four-beat arc applied to: tokenization (Cells 3-4-5-7), embedding similarity (Cells 13-14-15-16-17), transformer families (Cells 23-24-25-26)

@@ -1,0 +1,16 @@
+graph TD
+    subgraph bottleneck ["Seq2seq WITHOUT attention"]
+        enc1["Encoder reads\nfull complaint"] --> bottle["Single bottleneck vector\n(fixed size, all info compressed)"]
+        bottle --> dec1["Decoder generates\noutput from bottleneck only"]
+    end
+
+    subgraph attention ["Seq2seq WITH Bahdanau attention"]
+        enc2["Encoder produces\nh1, h2, ..., hT\n(one state per token)"]
+        dec2["Decoder state s_t-1"] --> align["Alignment scores\n(how much to attend to each h)"]
+        enc2 --> align
+        align --> ctx["Context vector c_t\n(weighted sum of encoder states)"]
+        ctx --> dec3["Decoder generates\nnext output token"]
+    end
+
+    style bottle fill:#fda,stroke:#c33
+    style ctx fill:#dfd,stroke:#3a3

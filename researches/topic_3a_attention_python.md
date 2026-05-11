@@ -387,7 +387,25 @@ regardless of where they appear in the message.
 
 ---
 
-### Cell 10: [code] - Beat 3: Bahdanau Attention - Full Working Demo
+### Cell 10: [markdown] - Beat 2: Diagram for Bahdanau Score Computation
+
+**Purpose**: Beat 2 diagram for the Bahdanau alignment computation. Must appear before Beat 3 to satisfy the four-beat arc.
+
+**Content**:
+```
+<!-- DIAGRAM: Bahdanau attention score computation step by step: encoder hidden states h1 through hT on the left; decoder previous state s_{t-1} on the right; W1 and W2 projection arrows converging to a tanh node; v scoring vector producing energy scalars e_{t,1} through e_{t,T}; softmax normalisation producing alpha weights; weighted sum arrow pointing to context vector c_t. All tensor shapes labelled. -->
+[View diagram](../../plans/topic_3a/diagrams/bahdanau-score-computation.mmd)
+
+The diagram traces the computation for ONE decoder step t. Notice that the alignment
+network (W1, W2, v) is shared across all decoder steps - the same weights compute
+alignment scores at every position. Only the decoder state s_{t-1} changes per step.
+```
+
+**Notes**: This is Beat 2 for the Bahdanau concept arc. It must appear immediately before Cell 11 (Beat 3 demo) to satisfy the four-beat arc order.
+
+---
+
+### Cell 11: [code] - Beat 3: Bahdanau Attention - Full Working Demo
 
 **Purpose**: Beat 3 - instructor live-codes. Heavily commented. Full NumPy implementation of Bahdanau attention including alignment network, softmax weights, and context vector.
 
@@ -1056,23 +1074,7 @@ print("Training teaches the model to attend across tokens based on semantic rele
 
 ---
 
-### Cell 23: [markdown] - Beat 2: Diagram for Bahdanau Score Computation
-
-**Purpose**: Beat 2 diagram for the Bahdanau alignment computation. Placed after the attention demos so it serves as a visual summary.
-
-**Content**:
-```
-<!-- DIAGRAM: Bahdanau attention score computation step by step: encoder hidden states h1 through hT on the left; decoder previous state s_{t-1} on the right; W1 and W2 projection arrows converging to a tanh node; v scoring vector producing energy scalars e_{t,1} through e_{t,T}; softmax normalisation producing alpha weights; weighted sum arrow pointing to context vector c_t. All tensor shapes labelled. -->
-[View diagram](../../plans/topic_3a/diagrams/bahdanau-score-computation.mmd)
-
-The diagram traces the computation for ONE decoder step t. Notice that the alignment
-network (W1, W2, v) is shared across all decoder steps - the same weights compute
-alignment scores at every position. Only the decoder state s_{t-1} changes per step.
-```
-
----
-
-### Cell 24: [code] - Comparison: Bahdanau vs Dot Product vs Scaled on Complaint Tokens
+### Cell 23: [code] - Comparison: Bahdanau vs Dot Product vs Scaled on Complaint Tokens
 
 **Purpose**: Run all three attention variants on the same complaint embeddings and compare the attention patterns side by side. This is a synthesis cell, not a lab.
 
@@ -1303,8 +1305,6 @@ def bahdanau_attention_batched(encoder_states, decoder_states, W1, W2, v):
 
 **Content**:
 ```
----
-
 *End of Topic 3a - Seq2Seq and Bahdanau Attention*
 
 Next: Topic 3b - Attention in PyTorch

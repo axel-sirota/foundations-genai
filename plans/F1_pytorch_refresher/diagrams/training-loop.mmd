@@ -1,0 +1,12 @@
+graph TD
+    data["Batch of training data"] --> forward["1. Forward pass\n(compute predictions)"]
+    forward --> loss["2. Compute loss\n(how wrong are we?)"]
+    loss --> backward["3. Backward pass\n(.backward() computes gradients)"]
+    backward --> step["4. Optimizer step\n(update weights)"]
+    step --> zero["Zero gradients\n(optimizer.zero_grad())"]
+    zero --> forward
+
+    style forward fill:#ddf,stroke:#33c
+    style loss fill:#ffd,stroke:#cc3
+    style backward fill:#fda,stroke:#c63
+    style step fill:#dfd,stroke:#3a3

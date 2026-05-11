@@ -1,0 +1,19 @@
+graph TD
+    subgraph trained ["Trained attention: semantic clusters emerge"]
+        fraud["fraud"] -->|"high weight"| unauth["unauthorised"]
+        fraud -->|"high weight"| charge["charge"]
+        refund["refund"] -->|"high weight"| dispute["dispute"]
+        urgent["urgent"] -->|"moderate"| fraud
+        account["account"] -->|"low weight"| charge
+    end
+
+    subgraph random ["Untrained attention: diagonal dominant"]
+        t1["token_1"] -->|"self only"| t1s["token_1"]
+        t2["token_2"] -->|"self only"| t2s["token_2"]
+    end
+
+    note["Training teaches the model\nwhich tokens are semantically related.\nFraud attends to unauthorised and charge.\nRefund attends to dispute."]
+
+    style fraud fill:#fda,stroke:#c33
+    style refund fill:#ddf,stroke:#33c
+    style note fill:#fff,stroke:#999

@@ -1,0 +1,27 @@
+graph TD
+    subgraph encoder ["Encoder Stack (repeated N times)"]
+        src["Source tokens\n(complaint text)"] --> pe_enc["Positional Encoding"]
+        pe_enc --> mhsa["Multi-Head Self-Attention"]
+        mhsa --> an1["Add + LayerNorm"]
+        an1 --> ffn_enc["Feed-Forward Network"]
+        ffn_enc --> an2["Add + LayerNorm"]
+        an2 --> enc_out["Encoder Output\n[batch, T_src, d_model]"]
+    end
+
+    subgraph decoder ["Decoder Stack (repeated N times)"]
+        tgt["Target tokens\n(translation so far)"] --> pe_dec["Positional Encoding"]
+        pe_dec --> mmhsa["Masked Multi-Head\nSelf-Attention"]
+        mmhsa --> an3["Add + LayerNorm"]
+        an3 --> cross["Cross-Attention\n(queries from decoder,\nkeys+values from encoder)"]
+        enc_out -->|"keys + values"| cross
+        cross --> an4["Add + LayerNorm"]
+        an4 --> ffn_dec["Feed-Forward Network"]
+        ffn_dec --> an5["Add + LayerNorm"]
+    end
+
+    an5 --> linear["Linear projection\n[d_model -> vocab_size]"]
+    linear --> softmax["Softmax\n-> next token probabilities"]
+
+    style enc_out fill:#ddf,stroke:#33c
+    style cross fill:#fda,stroke:#c63
+    style softmax fill:#dfd,stroke:#3a3

@@ -9,8 +9,7 @@ texts. Each section of this notebook builds one component of that system:
 - Tensors   = how complaint text becomes numbers the model can process
 - Autograd  = how the model learns from its mistakes
 - DataLoader = how we feed batches of complaint records efficiently
-- nn.Module  = our first complaint classifier, hand-crafted
-- nn.Sequential = the same classifier, expressed cleanly
+- nn.Module  = our complaint classifier
 - HF Trainer = the production training loop used at real companies
 
 The dataset throughout is **synthetic complaint data** (no external API calls), created
@@ -23,10 +22,10 @@ high level. NOT beginners. Moving fast.
 
 ## Estimated Time
 
-- Sections 1-5 (PyTorch fundamentals): 90 min
-- Section 6 (HuggingFace Trainer): 45 min
-- Labs: 6 x ~20 min = ~120 min
-- Total in-class: ~4 hours (Day 1 morning + part of afternoon)
+- Sections 1-4 (PyTorch fundamentals): 75 min
+- Section 5 (HuggingFace Trainer): 30 min
+- Labs: 5 x ~18 min = ~90 min
+- Total in-class: ~3.5 hours (Day 1 morning + part of afternoon)
 
 ## Output path
 
@@ -69,9 +68,8 @@ that system depends on.
 1. Tensors - how complaint text becomes numbers
 2. Autograd - how the model learns from its mistakes
 3. Dataset and DataLoader - how we feed complaint batches efficiently
-4. Classifier with nn.Module - our first complaint classifier
-5. Classifier with nn.Sequential - the same classifier, written cleanly
-6. Training with HuggingFace Trainer - the production training loop
+4. Classifier with nn.Module - our complaint classifier and training loop
+5. Training with HuggingFace Trainer - the production training loop
 
 ### Prerequisites
 - Python 3.x, NumPy basics
@@ -98,7 +96,7 @@ see that F1 is Studio-kernel-only (no remote training).
 # No remote training in this notebook
 
 # Pin numpy<2 to avoid compatibility issues with older torch ops
-# transformers and datasets needed for Section 6 (HuggingFace Trainer)
+# transformers and datasets needed for Section 5 (HuggingFace Trainer)
 import subprocess, sys
 subprocess.run([
     sys.executable, "-m", "pip", "install", "-q",
@@ -169,17 +167,10 @@ inline with `%matplotlib inline` in subsequent cells.
 
 **Content**:
 ```markdown
----
 ## Section 1 - Tensors: How Complaint Text Becomes Numbers
 
-Before any model can read a customer complaint, we have to convert that text into
-numbers. Those numbers live in **tensors** - the fundamental data structure in PyTorch.
-
-A tensor is just a multi-dimensional array with one superpower: PyTorch knows how
-to run it on a GPU and, more importantly, how to differentiate through it.
-
-In this section you will learn to create, manipulate, and move tensors - the
-operations that every downstream component depends on.
+Customer complaint text must become numbers before any model can process it.
+Those numbers live in **tensors** -- PyTorch's core data structure, GPU-ready and differentiable.
 ```
 
 **Notes**: One markdown cell is fine here (3-cell markdown chain limit not triggered yet).
@@ -475,18 +466,11 @@ which students may or may not have. No verification code needed here.
 
 **Content**:
 ```markdown
----
 ## Section 2 - Autograd: How the Model Learns from Mistakes
 
-Right now our model has random weights. It will make wrong predictions on most
-complaints. **Autograd** is how PyTorch figures out, for each weight, whether
-increasing it would make the prediction better or worse - and by how much.
-
-This section covers:
-- `requires_grad=True`: telling PyTorch to track a tensor
-- `backward()`: computing all gradients at once
-- The manual training loop: forward -> loss -> backward -> update
-- `no_grad()`: turning off tracking during inference
+Our model starts with random weights. **Autograd** computes, for every weight,
+whether increasing it would reduce the loss -- and by exactly how much.
+One call to `.backward()` gives us all gradients at once.
 ```
 
 ---
@@ -822,68 +806,17 @@ another markdown cell after this - Cell 23 is a code cell.
 
 ---
 
-### Cell 23: [type: code] - Transition: What an Optimizer Gives You
-
-**Purpose**: Bridge from manual loop to nn.Module sections. Shows AdamW replaces
-the manual update step.
-
-**Content**:
-```python
-# Quick bridge: optimizers handle the update step for us
-# Instead of:
-#   w -= lr * w.grad
-#   w.grad.zero_()
-# We use:
-#   optimizer.step()
-#   optimizer.zero_grad()
-
-from torch import optim
-
-# Re-run Lab 2 but with AdamW optimizer (we will use this from now on)
-pt.manual_seed(SEED)
-x_train_demo = pt.rand(100, dtype=pt.float32)
-y_train_demo  = 0.7 * x_train_demo + 0.3 + 0.05 * pt.randn(100)
-
-w2 = pt.tensor(0.0, requires_grad=True)
-b2 = pt.tensor(0.0, requires_grad=True)
-
-optimizer = optim.AdamW([w2, b2], lr=0.05)
-
-for epoch in range(100):
-    y_pred2 = w2 * x_train_demo + b2
-    loss2 = ((y_pred2 - y_train_demo)**2).mean()
-    loss2.backward()
-    optimizer.step()      # updates w2 and b2
-    optimizer.zero_grad() # zeros all grads tracked by optimizer
-
-print(f"AdamW - Final w={w2.item():.4f} b={b2.item():.4f} loss={loss2.item():.6f}")
-print("From here on we always use optimizer.step() and optimizer.zero_grad()")
-```
-
-**Notes**: Short bridge cell. Tells the story of why we stop doing things manually.
-The AdamW pattern is used in every subsequent section.
-
----
-
 ### Cell 24: [type: markdown] - Section 3 Header: Dataset and DataLoader
 
 **Purpose**: Introduce Section 3 with Barclays narrative.
 
 **Content**:
 ```markdown
----
 ## Section 3 - Dataset and DataLoader: Feeding Complaint Batches Efficiently
 
-In the previous section we trained on the full dataset every step. Real complaint
-datasets at Barclays have millions of records - you cannot load them all into a tensor
-and do matrix math on all of them at once (memory runs out).
-
-The solution is **mini-batch training**: feed the model small batches of complaints,
-update weights after each batch, and repeat until you have seen the full dataset
-(one epoch).
-
-`Dataset` defines what your data looks like. `DataLoader` handles shuffling, batching,
-and (in production) parallel data loading from disk.
+Barclays complaint data has millions of records -- loading all of them into one tensor
+exhausts memory. `Dataset` describes your data; `DataLoader` handles shuffling,
+batching, and multi-worker loading automatically.
 ```
 
 ---
@@ -1143,16 +1076,11 @@ print(f"Batch shape: X={X_b.shape}, y={y_b.shape}")
 
 **Content**:
 ```markdown
----
 ## Section 4 - Complaint Classifier with nn.Module
 
-We now have tensors, autograd, and data loading. It is time to build the first real
-classifier: a two-layer neural network that takes complaint feature vectors and
-predicts one of three categories (account issue, fraud, payment problem).
-
-`nn.Module` is the base class for every neural network in PyTorch. You subclass it,
-define your layers in `__init__`, and implement `forward()`. PyTorch handles
-parameter registration, device placement, and gradient tracking automatically.
+Tensors, autograd, and data loading are in place. Now we wire them into a real
+classifier. Subclass `nn.Module`, define layers in `__init__`, implement `forward()` --
+PyTorch handles parameter registration, device placement, and gradient tracking.
 ```
 
 ---
@@ -1478,350 +1406,23 @@ print(f"Loss went from {deep_losses[0]:.4f} to {deep_losses[-1]:.4f}")
 
 ---
 
-### Cell 40: [type: markdown] - Discussion Prompt 2
+### Cell 41: [type: markdown] - Section 5 Header: HuggingFace Trainer
 
-**Purpose**: Peer discussion before Section 5.
-
-**Content**:
-```markdown
-### Discussion (3 min) - Model Architecture Decisions
-
-Your team is arguing about how to design the Barclays complaint classifier:
-
-1. One engineer wants 10 hidden layers with 512 units each. Another wants 2 hidden
-   layers with 32 units. You have 300 labeled complaints. Which is more dangerous
-   and why?
-2. Dropout randomly zeros out neurons during training. Why does this help the model
-   generalize better? What does "generalize" mean in the fraud detection context?
-3. We used `nn.CrossEntropyLoss`. Why not use MSE loss for a classification problem?
-   What would go wrong?
-```
-
-**Notes**: This discussion bridges naturally to Section 5 which introduces
-`nn.Sequential` - a cleaner way to express the same architectures students just built.
-
----
-
-### Cell 41: [type: markdown] - Section 5 Header: nn.Sequential
-
-**Purpose**: Introduce Section 5.
+**Purpose**: Transition to Section 5 with production motivation.
 
 **Content**:
 ```markdown
----
-## Section 5 - Cleaner Classifiers with nn.Sequential
+## Section 5 - HuggingFace Trainer: The Production Training Loop
 
-`nn.Module` with explicit `__init__` and `forward` is the right choice when you
-need custom logic (skip connections, branching, shared weights). But for simple
-feedforward networks like our complaint classifier, `nn.Sequential` is cleaner:
-you describe the layers as a sequence and PyTorch wires `forward` automatically.
-
-Think of it like a pipeline: complaint features go in one end, class logits come
-out the other end, no branching.
+In production, teams use the **HuggingFace Trainer** instead of a manual loop.
+It adds checkpointing, lr scheduling, mixed precision, and distributed training for free.
+The one catch: Trainer expects `datasets.Dataset` objects (HuggingFace format),
+not PyTorch `Dataset`. We convert using `HFDataset.from_dict()`.
 ```
 
 ---
 
-### Cell 42: [type: code] - Beat 1 (Broken): Sequential With Wrong Layer Order
-
-**Purpose**: Show that `nn.Sequential` fails silently with wrong shapes.
-
-**Content**:
-```python
-# --- Beat 1: Wrong layer order in nn.Sequential ---
-pt.manual_seed(SEED)
-
-# A common mistake: layers in wrong order or wrong dimensions
-bad_seq = nn.Sequential(
-    nn.Linear(6, 16),
-    nn.Linear(3, 16),   # WRONG: 3 inputs but previous layer outputs 16
-    nn.ReLU(),
-    nn.Linear(16, 3),
-)
-
-sample = pt.randn(4, 6)   # batch of 4 complaints, 6 features
-try:
-    out = bad_seq(sample)
-    print(f"Output shape: {out.shape}")
-except RuntimeError as e:
-    print(f"ERROR: {e}")
-
-print("\nnn.Sequential does not validate layer dimensions at construction time.")
-print("The error only surfaces when you run the forward pass.")
-print("Always test with a dummy input immediately after defining the model.")
-```
-
-**Notes**: The error is `RuntimeError: mat1 and mat2 shapes cannot be multiplied (16x16 and 3x16)`.
-This is a common mistake students make. The teaching point is: always do
-`model(pt.randn(1, input_dim))` right after defining `nn.Sequential`.
-
----
-
-### Cell 43: [type: code] - Beat 3 (Working): nn.Sequential Complaint Classifier
-
-**Purpose**: Show the clean nn.Sequential version and explain equivalence to nn.Module.
-
-**Content**:
-```python
-# --- Beat 3: Complaint classifier with nn.Sequential ---
-pt.manual_seed(SEED)
-
-# The same architecture as DeeperComplaintClassifier, expressed as nn.Sequential
-seq_model = nn.Sequential(
-    nn.Linear(6, 32),          # input layer: 6 features -> 32 hidden
-    nn.ReLU(),                 # non-linearity
-    nn.Dropout(0.3),           # regularization
-    nn.Linear(32, 16),         # hidden layer: 32 -> 16
-    nn.ReLU(),
-    nn.Dropout(0.3),
-    nn.Linear(16, 8),          # hidden layer: 16 -> 8
-    nn.ReLU(),
-    nn.Linear(8, 3),           # output: 8 -> 3 classes
-).to(device)
-
-# Always test with a dummy input before training
-dummy = pt.randn(1, 6, dtype=pt.float32).to(device)
-dummy_out = seq_model(dummy)
-print(f"Dummy forward pass output shape: {dummy_out.shape}")  # should be [1, 3]
-
-# Same parameter count as DeeperComplaintClassifier
-n_params = sum(p.numel() for p in seq_model.parameters())
-print(f"Parameters: {n_params}")
-
-# The same training loop works unchanged - nn.Sequential IS an nn.Module
-seq_criterion = nn.CrossEntropyLoss()
-seq_optimizer = optim.AdamW(seq_model.parameters(), lr=1e-3)
-seq_losses = []
-
-print("\n--- Training Sequential Classifier (10 epochs) ---")
-for epoch in range(10):
-    seq_model.train()
-    epoch_loss = 0.0
-    correct = 0
-    for X_batch, y_batch in loader:
-        logits = seq_model(X_batch)
-        loss   = seq_criterion(logits, y_batch)
-        seq_optimizer.zero_grad()
-        loss.backward()
-        seq_optimizer.step()
-        epoch_loss += loss.item() * len(y_batch)
-        correct += (logits.argmax(dim=1) == y_batch).sum().item()
-    seq_losses.append(epoch_loss / len(dataset))
-    if (epoch + 1) % 2 == 0:
-        print(f"  Epoch {epoch+1}: loss={seq_losses[-1]:.4f}  "
-              f"acc={correct/len(dataset):.3f}")
-
-# Model.eval() + no_grad for inference
-seq_model.eval()
-with pt.no_grad():
-    test_complaint = pt.randn(3, 6, dtype=pt.float32).to(device)
-    logits = seq_model(test_complaint)
-    probs  = pt.softmax(logits, dim=1)
-    preds  = logits.argmax(dim=1)
-    cats   = ["account_issue", "fraud", "payment"]
-    print("\nBatch predictions:")
-    for i, (p, prob) in enumerate(zip(preds, probs)):
-        print(f"  Complaint {i}: {cats[p.item()]}  "
-              f"(conf={prob[p].item():.3f})")
-```
-
-**Notes**: The key insight is that the training loop is IDENTICAL to Section 4.
-`nn.Sequential` just replaces the class definition, not the training pattern.
-Instructor should demo the "always test with dummy input" rule live.
-
----
-
-### Cell 44: [type: markdown] - Beat 4 Lab Instructions: Sequential Lab
-
-**Purpose**: STAR-method lab instructions.
-
-**Content**:
-```markdown
-### Lab 5 - Sequential Multi-Class Classifier (Tier 1, ~15 min)
-
-**Situation**: The Barclays data science team wants to experiment with different
-activation functions. Your team lead asks you to build two variants of the
-complaint classifier and compare their training loss after 5 epochs:
-- Variant A: uses `nn.ReLU` (what we have been using)
-- Variant B: uses `nn.Tanh` (an older activation, smoother gradient)
-
-**Task**: Build both models as `nn.Sequential`, train both for 5 epochs on the
-same data, and print which variant has lower final loss.
-
-**Action**: Complete the steps marked `# YOUR CODE`.
-
-**Result**: The verification cell confirms both models were trained and compares
-their final losses.
-
-Steps:
-1. Define `model_relu` as `nn.Sequential` with architecture: 6->32->ReLU->16->ReLU->3
-2. Define `model_tanh` as `nn.Sequential` with architecture: 6->32->Tanh->16->Tanh->3
-3. Train each for 5 epochs on `loader`, record losses in `relu_losses` and `tanh_losses`
-4. Print which model won (lower final loss)
-
-**Stretch**: Add a third variant using `nn.LeakyReLU(negative_slope=0.01)`. Plot
-all three loss curves on the same axes for visual comparison.
-```
-
----
-
-### Cell 45: [type: code] - Lab 5 Starter Code
-
-**Purpose**: Student-facing scaffold.
-
-**Content**:
-```python
-# Lab 5 - Sequential: ReLU vs Tanh
-pt.manual_seed(SEED)
-
-# Step 1: Model A - ReLU activations
-model_relu = None  # YOUR CODE: nn.Sequential with ReLU
-
-# Step 2: Model B - Tanh activations
-model_tanh = None  # YOUR CODE: nn.Sequential with Tanh
-
-relu_losses = []
-tanh_losses = []
-
-def train_5_epochs(model, losses_list):
-    """Train model for 5 epochs, appending avg loss per epoch to losses_list."""
-    if model is None:
-        return
-    opt = optim.AdamW(model.parameters(), lr=1e-3)
-    crit = nn.CrossEntropyLoss()
-    for epoch in range(5):
-        model.train()
-        epoch_loss = 0.0
-        for X_batch, y_batch in loader:
-            logits = None  # YOUR CODE: forward pass
-            loss   = None  # YOUR CODE: compute loss
-            # YOUR CODE: backward + optimizer step
-            epoch_loss += loss.item() * len(y_batch) if loss is not None else 0
-        losses_list.append(epoch_loss / len(dataset))
-
-# Step 3: Train both
-train_5_epochs(model_relu, relu_losses)
-train_5_epochs(model_tanh, tanh_losses)
-
-# Step 4: Compare
-if relu_losses and tanh_losses:
-    winner = "ReLU" if relu_losses[-1] < tanh_losses[-1] else "Tanh"
-    print(f"ReLU final loss: {relu_losses[-1]:.4f}")
-    print(f"Tanh final loss: {tanh_losses[-1]:.4f}")
-    print(f"Winner on this random data: {winner}")
-```
-
----
-
-### Cell 46: [type: code] - Lab 5 Safety-Net
-
-**Purpose**: Students who did not finish Lab 5 can continue.
-
-**Content**:
-```python
-# Lab 5 safety-net: run this if you did not finish Lab 5.
-# SKIP this cell if you DID finish Lab 5.
-pt.manual_seed(SEED)
-if model_relu is None or not relu_losses:
-    print("Using Lab 5 safety-net so the rest of the notebook can run.")
-
-    def _make_model(act):
-        return nn.Sequential(
-            nn.Linear(6, 32), act(), nn.Linear(32, 16), act(), nn.Linear(16, 3)
-        ).to(device)
-
-    model_relu = _make_model(nn.ReLU)
-    model_tanh = _make_model(nn.Tanh)
-    relu_losses, tanh_losses = [], []
-
-    for model, losses in [(model_relu, relu_losses), (model_tanh, tanh_losses)]:
-        opt = optim.AdamW(model.parameters(), lr=1e-3)
-        crit = nn.CrossEntropyLoss()
-        for _ in range(5):
-            model.train()
-            el = 0.0
-            for Xb, yb in loader:
-                lg = model(Xb)
-                ls = crit(lg, yb)
-                opt.zero_grad(); ls.backward(); opt.step()
-                el += ls.item() * len(yb)
-            losses.append(el / len(dataset))
-```
-
----
-
-### Cell 47: [type: code] - Lab 5 Verification
-
-**Purpose**: Confirm both models trained.
-
-**Content**:
-```python
-# Verification - Lab 5
-assert len(relu_losses) == 5, "relu_losses must have 5 values"
-assert len(tanh_losses) == 5, "tanh_losses must have 5 values"
-assert relu_losses[-1] < relu_losses[0] or tanh_losses[-1] < tanh_losses[0], \
-    "At least one model should show decreasing loss"
-print(f"Lab 5 passed.")
-print(f"  ReLU: {relu_losses[0]:.4f} -> {relu_losses[-1]:.4f}")
-print(f"  Tanh: {tanh_losses[0]:.4f} -> {tanh_losses[-1]:.4f}")
-```
-
----
-
-### Cell 48: [type: markdown] - Homework Extension 5
-
-**Purpose**: Async deeper work.
-
-**Content**:
-```markdown
-**Homework Extension 5 - nn.Sequential**
-
-1. Use `torch.nn.utils.prune.l1_unstructured` to prune 30% of the weights in
-   `model_relu.0` (the first Linear layer). Compare inference speed before and after
-   pruning. Does accuracy change?
-2. Export `model_relu` to ONNX format using `torch.onnx.export`. Load it with
-   `onnxruntime` and confirm it produces identical predictions to the PyTorch model.
-   ONNX export is the standard way to deploy PyTorch models to production serving.
-3. (Challenge) Implement `nn.Sequential`-style model definition using only `nn.ModuleList`
-   (not `nn.Sequential`). Override `forward` to iterate over the module list. Confirm
-   it produces the same output as `model_relu` for the same input.
-```
-
----
-
-### Cell 49: [type: markdown] - Section 6 Header: HuggingFace Trainer
-
-**Purpose**: Transition to Section 6 with strong production motivation.
-
-**Content**:
-```markdown
----
-## Section 6 - HuggingFace Trainer: The Production Training Loop
-
-Everything we have built so far is correct PyTorch. But in production, teams at
-companies like Barclays use the **HuggingFace Trainer** instead of writing their
-own training loop. Trainer adds:
-
-- Automatic evaluation every N epochs
-- Checkpointing (save and resume training)
-- Learning rate scheduling
-- Mixed precision (fp16/bf16) - roughly 2x faster on GPU
-- Distributed training across multiple GPUs
-- Integration with Weights & Biases, MLflow for experiment tracking
-- Progress bars and structured logging
-
-The trade-off: Trainer is less transparent than a manual loop. You need to
-understand the manual loop (Section 2-5) before Trainer becomes a tool, not
-a black box.
-
-### The Dataset format Trainer expects
-Trainer uses HuggingFace `datasets.Dataset` objects (not PyTorch `Dataset`).
-They behave like pandas DataFrames with Arrow-backed columnar storage.
-```
-
----
-
-### Cell 50: [type: code] - Beat 1 (Broken): Passing Wrong Dataset Type to Trainer
+### Cell 42: [type: code] - Beat 1 (Broken): Passing Wrong Dataset Type to Trainer
 
 **Purpose**: Show the error students get when they pass a PyTorch Dataset to Trainer.
 
@@ -1830,8 +1431,8 @@ They behave like pandas DataFrames with Arrow-backed columnar storage.
 # --- Beat 1: Passing a PyTorch Dataset to Trainer (wrong type) ---
 from transformers import Trainer, TrainingArguments
 
-# Use the seq_model from Section 5 - Trainer wraps any nn.Module
-# But first: what happens if we pass the wrong dataset type?
+# Trainer wraps any nn.Module - but it is strict about dataset type
+# What happens when we pass a PyTorch TensorDataset?
 
 try:
     bad_args = TrainingArguments(
@@ -1842,7 +1443,7 @@ try:
     )
     # dataset (PyTorch TensorDataset) - THIS IS THE WRONG TYPE for Trainer
     bad_trainer = Trainer(
-        model=seq_model,
+        model=model,    # model from Section 4
         args=bad_args,
         train_dataset=dataset,   # <-- PyTorch TensorDataset, not HF Dataset
     )
@@ -1861,11 +1462,10 @@ about its input types.
 
 ---
 
-### Cell 51: [type: code] - Beat 3 (Working): HuggingFace Trainer Full Demo
+### Cell 43: [type: code] - Beat 3 (Working): HuggingFace Trainer Full Demo
 
 **Purpose**: Full working Trainer setup. Includes HF Dataset creation, compute_metrics
 (inline numpy, NO evaluate library), TrainingArguments, Trainer, and train + evaluate.
-This is the Tier 2 (hard) reference that students will adapt in Lab 6.
 
 **Content**:
 ```python
@@ -1964,113 +1564,109 @@ Instructor should explicitly call out `eval_strategy` and explain why (transform
 
 ---
 
-### Cell 52: [type: markdown] - Beat 4 Lab Instructions: HF Trainer Lab (Tier 2)
+### Cell 44: [type: markdown] - Beat 4 Lab Instructions: HF Trainer Lab
 
-**Purpose**: STAR-method lab instructions for the Tier 2 (hard) lab.
+**Purpose**: STAR-method lab instructions (Tier 1).
 
 **Content**:
 ```markdown
-### Lab 6 - HuggingFace Trainer with Custom Model (Tier 2, ~30 min)
+### Lab 5 - HuggingFace Trainer with Custom Model (Tier 1, ~20 min)
 
-**Situation**: The Barclays NLP team wants to experiment with model architecture
-using the Trainer framework so they get checkpointing and evaluation for free.
-They have asked you to adapt the Trainer setup to a NEW model architecture AND
-a NEW dataset size (1000 complaints, 8 features, 4 classes).
+**Situation**: The Barclays NLP team wants checkpointing and automatic evaluation
+on a 4-class complaint classifier (account, fraud, payment, general).
 
-**Task**: Build a `FourClassComplaintClassifier` (4 output classes representing
-account, fraud, payment, general queries), wrap it in a `ComplaintTrainer`,
-and run training for 8 epochs. Report the best eval accuracy.
+**Task**: Adapt the Trainer setup from Beat 3 to a new model (8 features, 4 classes)
+and a larger dataset (1000 complaints). Train for 8 epochs. Report best eval accuracy.
 
-**Action**: This is a Tier 2 lab. You have the pattern from Beat 3. Fewer hints
-this time. Steps are deliberately less prescriptive.
+**Action**: Complete the steps marked `# YOUR CODE`.
 
-- Create `X_lab6` (1000 samples, 8 features) and `y_lab6` (1000 labels, 4 classes)
-- Build `FourClassComplaintClassifier` as `nn.Sequential` with at least 3 layers
-- Split data 80/20 into `hf_train6` and `hf_eval6` as HuggingFace datasets
-- Define `compute_metrics_lab6` using inline numpy (no evaluate library)
-- Define `TrainingArguments` with `num_train_epochs=8`, `eval_strategy="epoch"`
-- Define `ComplaintTrainer6` (subclass of Trainer) with the correct `compute_loss`
-- Train and report best eval accuracy from `trainer6.state.best_metric`
+**Result**: The verification cell confirms training ran for 8 epochs and eval accuracy
+is tracked in `trainer5.state.best_metric`.
 
-**Result**: The verification cell confirms training ran for 8 epochs and eval
-accuracy is tracked.
+Steps:
+1. Create `X_lab5` (1000 samples, 8 features, float32 numpy array) and
+   `y_lab5` (1000 labels, values 0-3, int64 numpy array)
+2. Build `hf_train5` and `hf_eval5` using `HFDataset.from_dict()` with 80/20 split;
+   call `.with_format("torch")` on both
+3. Define `compute_metrics_lab5(eval_pred)` -- inline numpy, no evaluate library
+4. Define `FourClassModel` as `nn.Sequential` (8->32->ReLU->16->ReLU->4) on `device`
+5. Define `ComplaintTrainer5` subclassing `Trainer`, override `compute_loss` so it
+   reads `inputs["features"]` and runs `CrossEntropyLoss`
+6. Create `TrainingArguments` with `num_train_epochs=8`, `eval_strategy="epoch"`,
+   `save_strategy="no"`, `no_cuda=(device.type=="cpu")`
+7. Create `trainer5`, call `.train()` then `.evaluate()`
 
-**Stretch**: Add per-class accuracy to `compute_metrics_lab6`. For each of the
-4 classes compute what fraction of that class was correctly predicted
-(hint: numpy masking on `predictions == labels`).
+**Stretch**: Add per-class accuracy to `compute_metrics_lab5` using numpy masking.
 ```
 
-**Notes**: Tier 2 means multi-step, less prescriptive. There are no `= None  # YOUR CODE`
-markers - students must structure their code themselves. This is the ONE Tier 2 lab
-for this day.
+**Notes**: Tier 1 guided lab. All variable names given, all steps numbered.
 
 ---
 
-### Cell 53: [type: code] - Lab 6 Starter Code (Tier 2 - Minimal Scaffold)
+### Cell 45: [type: code] - Lab 5 Starter Code
 
-**Purpose**: Minimal scaffold for Tier 2 lab. Students fill in much more.
+**Purpose**: Student-facing scaffold.
 
 **Content**:
 ```python
-# Lab 6 - HuggingFace Trainer (Tier 2)
-# You have the full pattern from Beat 3. Adapt it for:
-#   - 1000 samples, 8 features, 4 classes
-#   - Your own FourClassComplaintClassifier architecture
-#   - 8 training epochs
-
+# Lab 5 - HuggingFace Trainer
 pt.manual_seed(SEED)
 np.random.seed(SEED)
 
-# YOUR CODE: Create X_lab6 and y_lab6
-X_lab6 = None
-y_lab6 = None
+# Step 1: Create numpy arrays (Trainer needs numpy, not tensors)
+X_lab5 = None  # YOUR CODE: np.random.randn(1000, 8).astype(np.float32)
+y_lab5 = None  # YOUR CODE: np.random.randint(0, 4, size=1000).astype(np.int64)
 
-# YOUR CODE: Build FourClassComplaintClassifier
-class FourClassComplaintClassifier(nn.Module):
-    pass  # YOUR CODE
+# Step 2: Build HuggingFace datasets (80/20 split)
+split5 = 800
+hf_train5 = None  # YOUR CODE: HFDataset.from_dict({...}).with_format("torch")
+hf_eval5  = None  # YOUR CODE
 
-# YOUR CODE: Create hf_train6 and hf_eval6 (80/20 split)
-hf_train6 = None
-hf_eval6  = None
+# Step 3: compute_metrics (inline numpy - NO evaluate library)
+def compute_metrics_lab5(eval_pred):
+    pass  # YOUR CODE: return {"accuracy": ...}
 
-# YOUR CODE: compute_metrics_lab6 (inline numpy, no evaluate library)
-def compute_metrics_lab6(eval_pred):
-    pass  # YOUR CODE
+# Step 4: Model
+FourClassModel = None  # YOUR CODE: nn.Sequential 8->32->ReLU->16->ReLU->4, on device
 
-# YOUR CODE: ComplaintTrainer6 with correct compute_loss for 8-feature input
+# Step 5: Subclass Trainer
+class ComplaintTrainer5(Trainer):
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        pass  # YOUR CODE
 
-# YOUR CODE: TrainingArguments (8 epochs, eval_strategy="epoch")
+# Step 6: TrainingArguments
+training_args5 = None  # YOUR CODE: 8 epochs, eval_strategy="epoch", save_strategy="no"
 
-# YOUR CODE: Create trainer6, call trainer6.train() and trainer6.evaluate()
-trainer6 = None
+# Step 7: Create trainer, train, evaluate
+trainer5 = None  # YOUR CODE: ComplaintTrainer5(model=..., args=..., ...)
 
-if trainer6 is not None:
-    print("Training complete.")
-    print(f"Best eval accuracy: {trainer6.state.best_metric}")
+if trainer5 is not None:
+    trainer5.train()
+    trainer5.evaluate()
+    print(f"Best eval accuracy: {trainer5.state.best_metric}")
 ```
 
-**Notes**: The `pass` in the class body means the class is valid Python but will
-fail when instantiated - that is intentional for Tier 2 (students must write it).
+**Notes**: All variable names given. Steps follow the Beat 3 pattern exactly.
 The safety-net below covers students who do not finish.
 
 ---
 
-### Cell 54: [type: code] - Lab 6 Safety-Net
+### Cell 46: [type: code] - Lab 5 Safety-Net
 
-**Purpose**: Students who did not finish Lab 6 can see a result.
+**Purpose**: Students who did not finish Lab 5 can see a result.
 
 **Content**:
 ```python
-# Lab 6 safety-net: run this if you did not finish Lab 6.
-# SKIP this cell if you DID finish Lab 6.
+# Lab 5 safety-net: run this if you did not finish Lab 5.
+# SKIP this cell if you DID finish Lab 5.
 pt.manual_seed(SEED)
 np.random.seed(SEED)
 
-if trainer6 is None:
-    print("Using Lab 6 safety-net so the rest of the notebook can run.")
+if trainer5 is None:
+    print("Using Lab 5 safety-net so the rest of the notebook can run.")
 
-    X_lab6 = pt.randn(1000, 8).numpy().astype(np.float32)
-    y_lab6 = np.random.randint(0, 4, size=1000).astype(np.int64)
+    X_lab5 = np.random.randn(1000, 8).astype(np.float32)
+    y_lab5 = np.random.randint(0, 4, size=1000).astype(np.int64)
 
     _four_model = nn.Sequential(
         nn.Linear(8, 32), nn.ReLU(), nn.Dropout(0.2),
@@ -2078,11 +1674,11 @@ if trainer6 is None:
         nn.Linear(16, 4),
     ).to(device)
 
-    split = 800
-    _hf_train = HFDataset.from_dict({"features": X_lab6[:split].tolist(),
-                                      "labels":   y_lab6[:split].tolist()})
-    _hf_eval  = HFDataset.from_dict({"features": X_lab6[split:].tolist(),
-                                      "labels":   y_lab6[split:].tolist()})
+    split5 = 800
+    _hf_train = HFDataset.from_dict({"features": X_lab5[:split5].tolist(),
+                                      "labels":   y_lab5[:split5].tolist()})
+    _hf_eval  = HFDataset.from_dict({"features": X_lab5[split5:].tolist(),
+                                      "labels":   y_lab5[split5:].tolist()})
     _hf_train = _hf_train.with_format("torch")
     _hf_eval  = _hf_eval.with_format("torch")
 
@@ -2099,7 +1695,7 @@ if trainer6 is None:
             return (loss, logits) if return_outputs else loss
 
     _args = TrainingArguments(
-        output_dir="/tmp/lab6_safetynet",
+        output_dir="/tmp/lab5_safetynet",
         num_train_epochs=8,
         per_device_train_batch_size=32,
         per_device_eval_batch_size=64,
@@ -2108,62 +1704,60 @@ if trainer6 is None:
         logging_steps=50,
         no_cuda=(device.type == "cpu"),
     )
-    trainer6 = _FourTrainer(
+    trainer5 = _FourTrainer(
         model=_four_model,
         args=_args,
         train_dataset=_hf_train,
         eval_dataset=_hf_eval,
         compute_metrics=_compute_metrics,
     )
-    trainer6.train()
-    trainer6.evaluate()
+    trainer5.train()
+    trainer5.evaluate()
 ```
 
 ---
 
-### Cell 55: [type: code] - Lab 6 Verification
+### Cell 47: [type: code] - Lab 5 Verification
 
 **Purpose**: Confirm training ran.
 
 **Content**:
 ```python
-# Verification - Lab 6
-assert trainer6 is not None, "trainer6 not created"
-assert trainer6.state.epoch == 8.0, \
-    f"Expected 8 epochs, got {trainer6.state.epoch}"
-best = trainer6.state.best_metric
+# Verification - Lab 5
+assert trainer5 is not None, "trainer5 not created"
+assert trainer5.state.epoch == 8.0, \
+    f"Expected 8 epochs, got {trainer5.state.epoch}"
+best = trainer5.state.best_metric
 assert best is not None, "No best metric recorded - did you set compute_metrics?"
-print(f"Lab 6 passed.")
-print(f"  Epochs completed: {int(trainer6.state.epoch)}")
+print(f"Lab 5 passed.")
+print(f"  Epochs completed: {int(trainer5.state.epoch)}")
 print(f"  Best eval accuracy: {best:.3f}")
 print("  eval_strategy='epoch' used (NOT evaluation_strategy - that was removed in 4.41+)")
 ```
 
 ---
 
-### Cell 56: [type: markdown] - Homework Extension 6
+### Cell 48: [type: markdown] - Homework Extension 5
 
 **Purpose**: Async deeper work.
 
 **Content**:
 ```markdown
-**Homework Extension 6 - HuggingFace Trainer**
+**Homework Extension 5 - HuggingFace Trainer**
 
-1. Add a `transformers.EarlyStoppingCallback` to `trainer6`. Set `early_stopping_patience=3`.
+1. Add a `transformers.EarlyStoppingCallback` to `trainer5`. Set `early_stopping_patience=3`.
    Rerun training with 20 epochs - does it stop before epoch 20?
 2. Enable mixed precision by adding `fp16=True` to `TrainingArguments` (only if you
    have a GPU). Measure the speedup vs the fp32 run. Note: fp16 training is the
    primary reason Trainer is preferred over manual loops in production.
-3. (Challenge) Replace the synthetic complaint features with TF-IDF encodings of
-   real text. Write 20 synthetic complaint strings (5 per class), vectorize them
-   with `sklearn.feature_extraction.text.TfidfVectorizer`, and use the TF-IDF
-   matrix as `X_lab6`. Train with Trainer and compare accuracy to the random-feature
-   baseline.
+3. (Challenge) Replace the synthetic features with TF-IDF encodings of real text.
+   Write 20 synthetic complaint strings, vectorize with `TfidfVectorizer`, and use
+   the matrix as `X_lab5`. Compare Trainer accuracy to the random-feature baseline.
 ```
 
 ---
 
-### Cell 57: [type: markdown] - Wrap-Up and Key Takeaways
+### Cell 49: [type: markdown] - Wrap-Up and Key Takeaways
 
 **Purpose**: Synthesize the notebook, bridge to next topic.
 
@@ -2181,7 +1775,6 @@ a production training pipeline:
 | Autograd | Tracks gradients through computation | Model learns from prediction errors |
 | Dataset + DataLoader | Batches data for efficient training | Feeds 10k complaints per hour |
 | nn.Module | Defines model architecture | Custom complaint classifier |
-| nn.Sequential | Clean alternative for feedforward nets | Rapid architecture experiments |
 | HF Trainer | Production training loop with eval + ckpt | What the real models use |
 
 ### Key rules to remember
@@ -2199,9 +1792,6 @@ The next notebook (Topic 3a - Seq2Seq and Bahdanau Attention) builds on everythi
 here. You will use DataLoader to feed sequence data, nn.Module to build an encoder-
 decoder architecture, and the manual training loop (not Trainer) to understand
 how sequence-to-sequence models learn.
-
-The Barclays complaint classifier we built in 6 sections will become the decoder
-that selects which customer support team should handle each complaint.
 ```
 
 **Notes**: The table reinforces the narrative that ran throughout. The "key rules"
@@ -2209,7 +1799,7 @@ section is the cheat sheet students take away. The bridge to Topic 3a is explici
 
 ---
 
-### Cell 58: [type: code] - Final Sanity Check
+### Cell 50: [type: code] - Final Sanity Check
 
 **Purpose**: Run a top-to-bottom sanity check that all key variables are defined
 and have expected types. Students can re-run this after any kernel restart.
@@ -2222,8 +1812,7 @@ checks = {
     "w and b (Section 2)":      lambda: isinstance(w, pt.Tensor) and isinstance(b, pt.Tensor),
     "train_loader (Section 3)": lambda: train_loader is not None,
     "model (Section 4)":        lambda: isinstance(model, nn.Module),
-    "seq_model (Section 5)":    lambda: isinstance(seq_model, nn.Sequential),
-    "trainer6 (Section 6)":     lambda: trainer6 is not None,
+    "trainer5 (Section 5)":     lambda: trainer5 is not None,
 }
 
 all_pass = True
@@ -2261,9 +1850,8 @@ Verify these names match exactly when building Topic 3a and beyond.
 | `X_complaints` | `Tensor float32` | [200, 6] | Lab 1 |
 | `y_complaints` | `Tensor long` | [200] | Lab 1 |
 | `model` | `ComplaintClassifier` | - | Section 4 |
-| `seq_model` | `nn.Sequential` | - | Section 5 |
 | `loader` | `DataLoader` | - | Section 4 |
-| `trainer6` | `ComplaintTrainer` subclass | - | Lab 6 |
+| `trainer5` | `ComplaintTrainer` subclass | - | Lab 5 |
 
 ---
 
@@ -2273,13 +1861,12 @@ Verify these names match exactly when building Topic 3a and beyond.
 |---------|-------|-------|
 | Setup | 3 | 1-3 |
 | Section 1 Tensors | 9 | 4-12 |
-| Section 2 Autograd | 11 | 13-23 |
-| Section 3 DataLoader | 8 | 24-31 |
-| Section 4 nn.Module | 8 | 32-39 |
-| Discussion | 2 | 40-41 |
-| Section 5 Sequential | 8 | 41-48 |
-| Section 6 HF Trainer | 10 | 49-58 |
-| **Total** | **58** | |
+| Section 2 Autograd | 10 | 13-22 |
+| Section 3 DataLoader | 8 | 23-30 |
+| Section 4 nn.Module | 9 | 31-39 |
+| Section 5 HF Trainer | 10 | 40-49 |
+| Wrap-Up + Sanity | 2 | 49-50 |
+| **Total** | **~50** | |
 
 ---
 

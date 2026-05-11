@@ -28,8 +28,8 @@ NOT beginners. Skip the equations - lean on intuition and code.
 
 | # | Slug | Path | Description |
 |---|------|------|-------------|
-| 1 | genai-taxonomy | `../../plans/topic_1/diagrams/genai-taxonomy.mmd` | Taxonomy tree of generative model families: root "Generative AI" splits into GAN, VAE, Diffusion, Autoregressive. Each leaf has 1-2 example models and the data type they excel at (images vs text). |
-| 2 | autoregressive-loop | `../../plans/topic_1/diagrams/autoregressive-loop.mmd` | LLM token generation loop: context window box -> softmax over vocab -> sample token -> append to context -> repeat arrow back to start. Shows how temperature shifts the distribution. |
+| 1 | autoregressive-loop | `../../plans/topic_1/diagrams/autoregressive-loop.mmd` | LLM token generation loop: context window box -> softmax over vocab -> sample token -> append to context -> repeat arrow back to start. Shows how temperature shifts the distribution. |
+| 2 | openai-api-request-response-flow | `../../plans/topic_1_overview_genai/diagrams/openai-api-request-response-flow.mmd` | OpenAI API request/response cycle: system prompt and user message combined into HTTP request, model applies temperature to the output distribution, returns structured completion. Shows the role of the system prompt and how temperature affects the output. |
 
 ---
 
@@ -115,7 +115,6 @@ If students already have the packages this cell is fast. Instructor: confirm eve
 
 **Content**:
 ```
----
 ## Section 1: The Generative AI Landscape
 
 Before we pick a tool, we need a map.
@@ -160,18 +159,16 @@ The next cell is the diagram placeholder (markdown), then we must have code imme
 
 ---
 
-### Cell 5: [type: markdown] - Diagram 1: Generative Model Taxonomy
+### Cell 5: [type: markdown] - Taxonomy Summary and Section Bridge
 
-**Purpose**: Visual anchor for the four families.
+**Purpose**: Brief commentary bridging the taxonomy table to the code demo. Keeps the markdown
+chain from hitting 3 in a row (Cell 3, Cell 4, this cell) before Cell 6 code.
 
 **Content**:
 ```
-<!-- DIAGRAM: Taxonomy tree of generative AI model families. Root node "Generative AI" splits into four branches: GAN, VAE, Diffusion, Autoregressive. Each branch shows 1-2 example models and the data modality each family excels at. -->
-[View diagram](../../plans/topic_1/diagrams/genai-taxonomy.mmd)
-
-The diagram above shows the four branches. Notice that three of the four (GAN, VAE, Diffusion)
-dominate *image* generation. Autoregressive is the family that dominates *text*. That asymmetry
-is not an accident - you will see exactly why in Section 2.
+The table above is your map for this session. Three of the four families dominate *image*
+generation. Autoregressive is the family that dominates *text*. That asymmetry is not an
+accident - you will see exactly why in Section 2 when we try (and fail) to use a GAN for text.
 ```
 
 **Notes**: This is the third consecutive markdown cell. Cell 6 MUST be code.
@@ -311,7 +308,6 @@ training recipe and the nature of language.
 **So where do GANs shine?** Photorealistic face synthesis (StyleGAN), image-to-image
 translation (Pix2Pix), and any task where the output is a continuous tensor.
 
----
 **Peer Discussion (3 min)**
 
 Think about a Barclays fraud detection system:
@@ -418,7 +414,6 @@ trick and the fact that the same input maps to a distribution. Takes 30 seconds 
 
 **Content**:
 ```
----
 ## Section 2: The Right Tool - Autoregressive Models
 
 So far:
@@ -681,7 +676,6 @@ The conclusion of the taxonomy tour.
 
 **Content**:
 ```
----
 ## Section 3: LLM-as-a-Service - The OpenAI API
 
 We have established:
@@ -817,6 +811,7 @@ This is acceptable Beat 1 behavior (runs, fails). Make sure the instructor notes
 ### Cell 21: [type: markdown] - Beat 2 (API) - What a System Prompt Does
 
 **Purpose**: Explain system prompts and their role before showing the working demo.
+Includes the diagram placeholder for the API request/response flow.
 
 **Content**:
 ```
@@ -824,6 +819,13 @@ This is acceptable Beat 1 behavior (runs, fails). Make sure the instructor notes
 
 The model's response without a system prompt is empathetic but useless for operations:
 it gives advice but does not classify, does not route, and does not follow any format.
+
+<!-- DIAGRAM: openai-api-request-response-flow -->
+[View diagram](../../plans/topic_1_overview_genai/diagrams/openai-api-request-response-flow.mmd)
+
+The diagram shows the full request/response cycle: the system prompt and user message are
+combined into a single HTTP request; the model returns a completion shaped by temperature
+(low = peaked distribution, high = spread distribution) and the system prompt constraints.
 
 A system prompt lets us give the model:
 1. A **role** (who it is)
@@ -1097,7 +1099,6 @@ implications of using an LLM API for financial complaint routing.
 
 **Content**:
 ```
----
 **Peer Discussion (4 min)**
 
 You have just built a working complaint triage system using the OpenAI API.
@@ -1280,7 +1281,6 @@ without relying on the OpenAI API for every single inference."
 
 **Content**:
 ```
----
 ## Wrap-Up: What You Built Today
 
 In the last 50 minutes you:

@@ -1,0 +1,11 @@
+graph TD
+    notebook["Notebook\n(mlflow client)"] -->|"log_metric / log_param"| server["SageMaker Managed\nMLflow Tracking Server"]
+    train_instance["Training instance\n(train.py + mlflow)"] -->|"log runs over HTTPS"| server
+    server --> db["Managed run metadata DB\n(experiment runs, params, metrics)"]
+    server --> s3_art["S3 Artifact Store\n(model files, plots)"]
+    iam["IAM role\n(sagemaker-mlflow:*)"] -->|"authorizes"| server
+
+    style server fill:#fda,stroke:#c63
+    style iam fill:#ffd,stroke:#aa3
+    style s3_art fill:#dfd,stroke:#3a3
+    style train_instance fill:#ddf,stroke:#33c

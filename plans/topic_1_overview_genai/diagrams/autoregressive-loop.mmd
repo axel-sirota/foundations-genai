@@ -1,0 +1,15 @@
+graph TD
+    prompt["Context window\n(prompt tokens so far)"] --> forward["Full forward pass\nthrough transformer"]
+    forward --> dist["Softmax distribution\nover vocabulary (~100k tokens)"]
+    dist --> temp{"Temperature"}
+    temp -->|"temp=0 (greedy)"| peak["Pick peak token\n(most likely)"]
+    temp -->|"temp=1.0 (creative)"| sample["Sample from\nspread distribution"]
+    peak --> append["Append new token\nto context window"]
+    sample --> append
+    append --> stop{"End of sequence\ntoken?"}
+    stop -->|"No"| prompt
+    stop -->|"Yes"| output["Final generated text"]
+
+    style prompt fill:#ddf,stroke:#33c
+    style dist fill:#ffd,stroke:#aa3
+    style output fill:#dfd,stroke:#3a3

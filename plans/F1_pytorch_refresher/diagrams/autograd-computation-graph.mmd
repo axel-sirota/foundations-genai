@@ -1,0 +1,12 @@
+graph TD
+    x["x (input tensor)"] --> mul["mul operation"]
+    w["w (weight, requires_grad=True)"] --> mul
+    mul --> y["y = w * x"]
+    y --> loss_fn["loss_fn (MSELoss)"]
+    target["target (true value)"] --> loss_fn
+    loss_fn --> loss["loss scalar"]
+    loss --> backward[".backward()"]
+    backward --> grad_w["w.grad computed"]
+
+    style backward fill:#f9a,stroke:#c33
+    style grad_w fill:#afa,stroke:#393

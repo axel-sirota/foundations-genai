@@ -1,0 +1,11 @@
+graph TD
+    text["Raw text input"] --> tok["Subword tokenizer\n(BPE or WordPiece)"]
+    tok --> ids["Token IDs\n(fixed vocab ~30k)"]
+    ids --> enc["Encoder-only\n(BERT, DistilBERT)\nReads full sequence\nUse: classification, embeddings"]
+    ids --> dec["Decoder-only\n(GPT-4o, Llama)\nGenerates left-to-right\nUse: text generation, chat"]
+    ids --> encdec["Encoder-Decoder\n(Flan-T5, BART)\nEncodes input, decodes output\nUse: translation, summarization"]
+
+    style tok fill:#ffd,stroke:#aa3
+    style enc fill:#ddf,stroke:#33c
+    style dec fill:#fda,stroke:#c63
+    style encdec fill:#dfd,stroke:#3a3

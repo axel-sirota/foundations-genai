@@ -1,0 +1,14 @@
+graph TD
+    studio["SageMaker Studio\n(your notebook)"] --> upload["Upload training code\nand data to S3"]
+    upload --> s3_input["S3 input bucket\n(training data + scripts)"]
+    s3_input --> api["estimator.fit()\ncalls SageMaker API"]
+    api --> instance["Training instance spins up\n(ml.m5.xlarge or ml.g4dn.xlarge)"]
+    instance --> train["train.py runs\ninside Docker container"]
+    train --> s3_artifacts["Model artifacts saved\nto S3 output path"]
+    train --> cw["Logs streamed to\nCloudWatch Logs"]
+    s3_artifacts --> studio
+
+    style studio fill:#ddf,stroke:#33c
+    style instance fill:#fda,stroke:#c63
+    style s3_artifacts fill:#dfd,stroke:#3a3
+    style cw fill:#ffd,stroke:#aa3

@@ -23,7 +23,7 @@ Concepts covered:
 6. Capstone: SST-2 sentiment classifier trained remotely, deployed to ml.m5.xlarge endpoint
 7. Accuracy comparison: transfer learning vs full fine-tuning from 6a
 
-Lab tier: Tier 1 (guided) - this is the fourth topic on Day 2, Tier 2 was used in Topic 4,
+Lab tier: Tier 2 - this is the fourth topic on Day 2 and the designated Tier 2 lab for Day 2.
 Tier 3 is reserved for Topic 7b (last topic of Day 2).
 
 ---
@@ -732,9 +732,19 @@ print("  Transfer learning (6b)  |  ~87-90% |         591,360  |    ~5 min/epoch
 print("")
 print("Transfer learning is faster AND slightly more accurate on small datasets.")
 print("Why? Fewer parameters = less overfitting on 2000 samples.")
-print("")
-print("<!-- DIAGRAM: Accuracy vs epochs comparison - transfer learning (frozen encoder) converges faster with less memory than full fine-tuning, with catastrophic forgetting risk annotated -->")
-print("[View diagram](../../plans/topic_6b/diagrams/tl-vs-finetuning-comparison.mmd)")
+```
+
+---
+
+**Cell 15b** | type: markdown | beat: 2 (diagram - comparison)
+```
+<!-- DIAGRAM: Accuracy vs epochs comparison - transfer learning (frozen encoder) converges faster with less memory than full fine-tuning, with catastrophic forgetting risk annotated -->
+[View diagram](../../plans/topic_6b/diagrams/tl-vs-finetuning-comparison.mmd)
+
+Transfer learning (green line) climbs steeply in epoch 1 because only 591K head parameters
+are updated, allowing the optimizer to converge quickly on the small SST-2 subsample.
+Full fine-tuning (blue line) starts slower and shows slight oscillation because 66M parameter
+gradients must stabilize across all encoder layers before accuracy improves consistently.
 ```
 
 ---
@@ -815,6 +825,18 @@ print(f"Billable seconds: {desc['BillableTimeInSeconds']}")
 
 ---
 
+**Cell 18b** | type: code | beat: 4 (training_job_name safety-net)
+```python
+# Safety-net: run this if your kernel restarted after launching the training job.
+# SKIP this cell if training_job_name is already defined.
+
+if 'training_job_name' not in dir() or training_job_name is None:
+    training_job_name = "<PASTE YOUR JOB NAME HERE>"
+    print(f"Using safety-net training_job_name: {training_job_name}")
+```
+
+---
+
 **Cell 19** | type: markdown | beat: 4 (discussion prompt)
 ```
 ## Discussion (3 min)
@@ -837,48 +859,11 @@ We will revisit this comparison after Topic 7.
 
 ---
 
-**Cell 20** | type: code | beat: 4 (deploy endpoint)
-```python
-# Deploy the trained model to a real-time endpoint
-# ml.m5.xlarge: 4 vCPU, 16GB RAM - required for DistilBERT inference
-# DO NOT use ml.c5.large (4GB RAM) - it OOMs on DistilBERT
-
-from sagemaker.pytorch import PyTorchModel
-from sagemaker.serializers import JSONSerializer
-from sagemaker.deserializers import JSONDeserializer
-
-# The model_data points to the tar.gz artifact from the training job
-pytorch_model = PyTorchModel(
-    model_data=estimator.model_data,
-    role=role,
-    framework_version="2.8.0",
-    py_version="py312",
-    entry_point="inference.py",
-    source_dir="scripts_topic6b",
-)
-
-predictor = pytorch_model.deploy(
-    initial_instance_count=1,
-    instance_type="ml.m5.xlarge",
-    serializer=JSONSerializer(),
-    deserializer=JSONDeserializer(),
-    endpoint_name="topic6b-transfer-learning",
-)
-
-print(f"Endpoint deployed: {predictor.endpoint_name}")
-```
-
-**Note for notebook builder**: The `inference.py` file in scripts_topic6b must implement
-`model_fn`, `input_fn`, `predict_fn`, `output_fn`. Include it as a second file in source_dir.
-For the plan, include the full inference.py content in a code cell comment block, then write it
-as Cell 21 (a helper cell that writes the file).
-
----
-
-**Cell 21** | type: code | beat: 4 (inference script - write file)
+**Cell 20** | type: code | beat: 4 (inference script - write file)
 ```python
 # Write the inference script that SageMaker will use to serve predictions
 # This runs in the notebook to create scripts_topic6b/inference.py
+# Must be written BEFORE deploying so the file exists when PyTorchModel is constructed.
 
 inference_code = '''
 import os, json, torch
@@ -925,6 +910,40 @@ print("scripts_topic6b/inference.py written successfully.")
 
 ---
 
+**Cell 21** | type: code | beat: 4 (deploy endpoint)
+```python
+# Deploy the trained model to a real-time endpoint
+# inference.py was written in the previous cell - it must exist before this cell runs
+# ml.m5.xlarge: 4 vCPU, 16GB RAM - required for DistilBERT inference
+# DO NOT use ml.c5.large (4GB RAM) - it OOMs on DistilBERT
+
+from sagemaker.pytorch import PyTorchModel
+from sagemaker.serializers import JSONSerializer
+from sagemaker.deserializers import JSONDeserializer
+
+# The model_data points to the tar.gz artifact from the training job
+pytorch_model = PyTorchModel(
+    model_data=estimator.model_data,
+    role=role,
+    framework_version="2.8.0",
+    py_version="py312",
+    entry_point="inference.py",
+    source_dir="scripts_topic6b",
+)
+
+predictor = pytorch_model.deploy(
+    initial_instance_count=1,
+    instance_type="ml.m5.xlarge",
+    serializer=JSONSerializer(),
+    deserializer=JSONDeserializer(),
+    endpoint_name="topic6b-transfer-learning",
+)
+
+print(f"Endpoint deployed: {predictor.endpoint_name}")
+```
+
+---
+
 **Cell 22** | type: code | beat: 4 (test endpoint)
 ```python
 # Test the deployed endpoint with Barclays-style complaint samples
@@ -967,36 +986,33 @@ print("No more charges for this endpoint.")
 
 **Cell 24** | type: markdown | beat: 4 (lab instructions)
 ```
-## Lab 6b: Tune the Transfer Learning Head (Tier 1 - Guided)
+## Lab 6b: Validate a Transfer Learning Model Locally (Tier 2)
 
-**Situation**: The Barclays data science team runs weekly retrains of the complaint sentiment
-model. The current hyperparameters (lr=2e-4, freeze_encoder=1) are a good baseline.
-Your task is to experiment with the learning rate and verify that freezing the encoder
-is critical for CPU-speed retraining.
+**Situation**: The Barclays data science team wants to validate a freshly trained transfer
+learning model before routing live complaint traffic to the endpoint. You have a pre-trained
+DistilBERT model (frozen encoder, trained head) and a local sample of SST-2 test data.
+Build a local validation pipeline that loads the model, measures accuracy, and confirms
+that the encoder remains frozen (no gradients in encoder layers).
 
-**Task**: Complete the cells below to:
-1. Tokenize a small local test set from SST-2
-2. Load the model artifact from S3 and count trainable parameters
-3. Run one local validation pass and compute accuracy
+**Task**: Implement the three code cells below. No step-by-step instructions are provided.
+Refer to the demo cells earlier in the notebook if you need a pattern to follow.
 
-**Action**: Fill in each `# YOUR CODE` block below.
+**Result**: Print the trainable parameter count, confirm encoder gradients are None,
+and report local validation accuracy. Expected accuracy: ~0.50 on an untuned head,
+~0.87-0.90 after the SageMaker job completes.
 
-**Result**: You will see the model accuracy on the local test set and confirm
-that only the head parameters have gradients.
+**Time**: 25-35 minutes
 
-**Time**: 15 minutes
-
-**Stretch**: After finishing the main lab, try launching a second estimator.fit()
-with freeze_encoder=0 (full fine-tune) and compare the training time and final accuracy.
-Does transfer learning still win on 2000 samples?
+**Stretch**: After finishing, launch a second estimator.fit() with freeze_encoder=0
+(full fine-tune) and compare training time and final accuracy. At 2000 samples, which
+approach wins? What do you expect at 20,000 samples?
 ```
 
 ---
 
 **Cell 25** | type: code | beat: 4 (lab starter - step 1: tokenize)
 ```python
-# Lab 6b Step 1: Load a 100-sample test set from SST-2 and tokenize it.
-# Use max_length=128 and padding=True so we get uniform tensor shapes.
+# Lab 6b - Part 1: Load and tokenize a local test set from SST-2.
 
 from datasets import load_dataset
 from transformers import AutoTokenizer
@@ -1004,11 +1020,8 @@ from transformers import AutoTokenizer
 model_name = "distilbert-base-uncased"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-# Step 1a: Load the SST-2 validation split (first 100 samples)
 test_raw = None  # YOUR CODE
 
-# Step 1b: Tokenize using the tokenizer. Use truncation=True, max_length=128, padding=True.
-# The column to tokenize is "sentence".
 test_encoded = None  # YOUR CODE
 
 print(f"Test set size: {len(test_raw)}")
@@ -1037,19 +1050,15 @@ if test_encoded is None or test_raw is None:
 
 **Cell 27** | type: code | beat: 4 (lab starter - step 2: load model and count params)
 ```python
-# Lab 6b Step 2: Load DistilBERT for sequence classification and freeze the encoder.
-# Then count how many parameters are trainable.
+# Lab 6b - Part 2: Load DistilBERT, freeze the encoder, and count trainable parameters.
 
 from transformers import AutoModelForSequenceClassification
 import torch
 
-# Step 2a: Load the model with num_labels=2
 model_lab = None  # YOUR CODE
 
-# Step 2b: Freeze the DistilBERT encoder (hint: iterate over model_lab.distilbert.parameters())
-# YOUR CODE
+# YOUR CODE - freeze encoder
 
-# Step 2c: Count and print trainable parameters
 trainable = None  # YOUR CODE
 print(f"Trainable parameters: {trainable:,}")
 ```
@@ -1058,32 +1067,28 @@ print(f"Trainable parameters: {trainable:,}")
 
 **Cell 28** | type: code | beat: 4 (lab starter - step 3: local validation pass)
 ```python
-# Lab 6b Step 3: Run a local validation pass and compute accuracy.
-# Use inline numpy (no evaluate library).
+# Lab 6b - Part 3: Run a local validation pass and compute accuracy using inline numpy.
 
 from torch.utils.data import DataLoader
 from transformers import DataCollatorWithPadding
 import numpy as np
 
-# Step 3a: Prepare the dataset for PyTorch
 test_ds = test_encoded.rename_column("label", "labels")
 test_ds.set_format("torch")
 collator = DataCollatorWithPadding(tokenizer)
 test_loader = DataLoader(test_ds, batch_size=32, collate_fn=collator)
 
-# Step 3b: Run inference with torch.no_grad() and collect logits + labels
 all_logits = []
 all_labels = []
 model_lab.eval()
 with torch.no_grad():
     for batch in test_loader:
-        # YOUR CODE - run model_lab on the batch and collect .logits and batch["labels"]
+        # YOUR CODE
         pass
 
-# Step 3c: Compute accuracy using numpy argmax (no evaluate library)
-all_logits = None  # YOUR CODE - concatenate all_logits into a numpy array
-all_labels = None  # YOUR CODE - concatenate all_labels into a numpy array
-accuracy = None    # YOUR CODE - fraction of correct predictions
+all_logits = None  # YOUR CODE
+all_labels = None  # YOUR CODE
+accuracy = None    # YOUR CODE
 
 print(f"Local validation accuracy: {accuracy:.4f}")
 print("Expected: ~0.50 (model not fine-tuned yet, random head)")
@@ -1256,24 +1261,20 @@ coherently before accuracy improves. Transfer learning wins on small datasets.
 
 ---
 
-**Cell 35** | type: code | beat: wrap-up (discussion)
-```python
-# Peer discussion - 3 min
-# Read through these questions and discuss with a partner.
+**Cell 35** | type: markdown | beat: wrap-up (discussion)
+```
+## Discussion: Transfer Learning in Production (3 min)
 
-print("Discussion: Transfer Learning in Production (3 min)")
-print("")
-print("1. Barclays adds a new complaint category: 'App login issues'.")
-print("   With transfer learning, do you need to retrain the full model?")
-print("   What changes? The encoder? The head? Both?")
-print("")
-print("2. A junior data scientist argues: 'Full fine-tuning always outperforms")
-print("   transfer learning given enough data.' When is this true?")
-print("   At what dataset size does the gap close?")
-print("")
-print("3. Topic 7 introduces LoRA: trainable adapters injected INTO the frozen")
-print("   encoder layers. How is that different from what we did today?")
-print("   What problem does it solve that today's approach does not?")
+Discuss with a partner. Focus on tradeoffs and real-world implications, not just how the
+code works.
+
+- Barclays adds a new complaint category: App login issues. With transfer learning, do you
+  need to retrain the full model? What changes - the encoder, the head, or both?
+- A junior data scientist argues that full fine-tuning always outperforms transfer learning
+  given enough data. When is this true? At what rough dataset size does the accuracy gap close?
+- Topic 7 introduces LoRA: trainable low-rank adapters injected INTO the frozen encoder layers.
+  How is that different from what we built today? What limitation of today's approach does it
+  address?
 ```
 
 ---
@@ -1325,13 +1326,15 @@ transformer layers. We will build one from scratch before using PEFT in 7b.
 | 12 | code | Beat 3 | Forward+backward: show encoder grad is None |
 | 13 | markdown | Beat 3 | Why remote training (transition cell) |
 | 14 | code | Beat 3 | Preview freeze_encoder function from train.py |
-| 15 | code | Beat 3 | Reference accuracy numbers + Diagram 2 |
+| 15 | code | Beat 3 | Reference accuracy numbers |
+| 15b | markdown | Beat 2 | Diagram 2: comparison (markdown cell) |
 | 16 | markdown | Beat 4 | Capstone intro: CPU remote training |
 | 17 | code | Beat 4 | Define PyTorch estimator + estimator.fit() |
 | 18 | code | Beat 4 | Retrieve job output + training time |
+| 18b | code | Beat 4 | training_job_name safety-net |
 | 19 | markdown | Beat 4 | Discussion: which approach for Barclays? |
-| 20 | code | Beat 4 | Deploy endpoint (PyTorchModel) |
-| 21 | code | Beat 4 | Write inference.py to disk |
+| 20 | code | Beat 4 | Write inference.py to disk |
+| 21 | code | Beat 4 | Deploy endpoint (PyTorchModel) |
 | 22 | code | Beat 4 | Test endpoint with complaint samples |
 | 23 | code | Beat 4 | Delete endpoint (cleanup) |
 | 24 | markdown | Lab | Lab 6b instructions (STAR method) |
@@ -1345,7 +1348,7 @@ transformer layers. We will build one from scratch before using PEFT in 7b.
 | 32 | markdown | Wrap-up | Comparison section intro |
 | 33 | code | Wrap-up | Side-by-side comparison table |
 | 34 | markdown | Wrap-up | Diagram 2 with annotation |
-| 35 | code | Wrap-up | Peer discussion questions |
+| 35 | markdown | Wrap-up | Peer discussion questions |
 | 36 | markdown | Wrap-up | Key takeaways + bridge to Topic 7a |
 
 Total: 37 cells (renumber 0-36). Adjust if any section splits during build.
@@ -1361,8 +1364,8 @@ Total: 37 cells (renumber 0-36). Adjust if any section splits during build.
 - [x] Beat 4: eight capstone cells + lab section
 
 ### Lab rules
-- [x] Tier 1 (guided): numbered steps, YOUR CODE placeholders, verification
-- [x] No Tier 2 (used in Topic 4 today)
+- [x] Tier 2: problem statement only (no numbered sub-steps), YOUR CODE placeholders, 25-35 min, stretch goal
+- [x] Tier 2 assigned here (topic_6b is the natural midpoint of Day 2)
 - [x] No Tier 3 (reserved for Topic 7b, last topic of Day 2)
 - [x] Every YOUR CODE placeholder does NOT hint at the answer
 - [x] Safety-net after Step 1 and after Steps 2+3

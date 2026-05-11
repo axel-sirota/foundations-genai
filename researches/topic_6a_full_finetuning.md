@@ -581,7 +581,63 @@ You still control the most important decisions:
 
 ---
 
-### Cell 8: code - Beat 3: Local Fine-Tuning Demo (small dataset, 1 epoch)
+### Cell 8: code - Beat 1: Broken Trainer Setup (missing eval_strategy)
+
+```python
+# Beat 1: The most common mistake with HuggingFace Trainer -- omitting eval_strategy.
+# This code runs without an import error but silently skips evaluation,
+# meaning you have no idea how well your model is doing during training.
+# In older transformers versions it also crashes with a DeprecationError.
+
+from transformers import (
+    AutoModelForSequenceClassification,
+    TrainingArguments,
+    Trainer,
+)
+
+broken_model = AutoModelForSequenceClassification.from_pretrained(
+    "distilbert-base-uncased", num_labels=2
+)
+
+# WRONG: evaluation_strategy was removed in transformers 4.41+.
+# On transformers >= 4.41 this raises:
+#   TypeError: TrainingArguments.__init__() got an unexpected keyword argument 'evaluation_strategy'
+# On older versions it silently does nothing if eval_dataset is also omitted.
+broken_args = TrainingArguments(
+    output_dir="./broken_demo",
+    num_train_epochs=1,
+    per_device_train_batch_size=4,
+    evaluation_strategy="epoch",   # <-- WRONG: removed in 4.41+, use eval_strategy
+    report_to="none",
+    no_cuda=True,
+)
+
+# WRONG: no eval_dataset passed -- Trainer cannot evaluate even if eval_strategy were correct.
+broken_trainer = Trainer(
+    model=broken_model,
+    args=broken_args,
+    train_dataset=tiny_train,
+    # eval_dataset missing -- evaluate() will raise ValueError:
+    # "Trainer: evaluation requires an eval_dataset."
+    compute_metrics=compute_metrics,
+)
+
+# Running broken_trainer.train() would either raise TypeError (transformers >= 4.41)
+# or complete with no eval metrics logged (older transformers).
+# Either way, you cannot trust your model without validation metrics.
+print("Do NOT call broken_trainer.train() -- this setup is intentionally broken.")
+print("Error you would see on transformers >= 4.41:")
+print("  TypeError: TrainingArguments.__init__() got an unexpected keyword argument 'evaluation_strategy'")
+print()
+print("Fix 1: Replace evaluation_strategy with eval_strategy (the correct argument name).")
+print("Fix 2: Always pass eval_dataset to Trainer so evaluation actually runs.")
+
+del broken_model, broken_trainer
+```
+
+---
+
+### Cell 9: code - Beat 3: Local Fine-Tuning Demo (small dataset, 1 epoch)
 
 ```python
 # Beat 3: Full working fine-tuning demo on a tiny dataset.
@@ -659,7 +715,7 @@ print(f"Train features: {tiny_train.features}")
 
 ---
 
-### Cell 9: code - Beat 3 continued: Inline Metrics and Trainer
+### Cell 10: code - Beat 3 continued: Inline Metrics and Trainer
 
 ```python
 # Inline accuracy metric -- no evaluate library (incompatible with datasets 4.x)
@@ -717,7 +773,7 @@ print("The real training job (800 examples, 3 epochs, GPU) is in Section 4.")
 
 ---
 
-### Cell 10: markdown - Lab 1 Instructions
+### Cell 11: markdown - Lab 1 Instructions
 
 ```
 ## Lab 1 - Tokenize the Barclays Complaint Dataset (Tier 1, guided)
@@ -744,7 +800,7 @@ Run the verification cell after completing the lab.
 
 ---
 
-### Cell 11: code - Lab 1 Starter Code
+### Cell 12: code - Lab 1 Starter Code
 
 ```python
 # ---- Dataset already created for you ----
@@ -834,7 +890,7 @@ print("Tokenization complete. Run the verification cell to check.")
 
 ---
 
-### Cell 12: code - Lab 1 Safety-Net
+### Cell 13: code - Lab 1 Safety-Net
 
 ```python
 # Lab 1 safety-net: run this if you did not finish Lab 1.
@@ -862,7 +918,7 @@ if tokenized_train is None or tokenized_val is None:
 
 ---
 
-### Cell 13: code - Lab 1 Verification
+### Cell 14: code - Lab 1 Verification
 
 ```python
 # Verification -- run after completing Lab 1 (or the safety-net).
@@ -886,7 +942,7 @@ print(f"  input_ids[0] length: {len(tokenized_train[0]['input_ids'])}")
 
 ---
 
-### Cell 14: markdown - Lab 1 Stretch and Homework
+### Cell 15: markdown - Lab 1 Stretch and Homework
 
 ```
 ### Lab 1 Stretch (fast finishers)
@@ -918,7 +974,7 @@ Does the multilingual tokenizer handle it better? How would you measure "better"
 
 ---
 
-### Cell 15: markdown - Discussion Prompt 1
+### Cell 16: markdown - Discussion Prompt 1
 
 ```
 ## Discussion (3 to 5 minutes)
@@ -940,7 +996,7 @@ will face before every real fine-tuning project.
 
 ---
 
-### Cell 16: markdown - Section 3: Catastrophic Forgetting
+### Cell 17: markdown - Section 3: Catastrophic Forgetting
 
 ```
 ## Section 3 - Catastrophic Forgetting
@@ -971,7 +1027,7 @@ Section 3 shows you this happening in real time.
 
 ---
 
-### Cell 17: code - Beat 1: Forgetting Demo Setup (Baseline)
+### Cell 18: code - Beat 1: Forgetting Demo Setup (Baseline)
 
 ```python
 # Beat 1: We measure the model's accuracy on a general sentiment task (SST-2 style)
@@ -1019,7 +1075,7 @@ print(f"(This is the general sentiment capability we will measure again after fi
 
 ---
 
-### Cell 18: code - Beat 1 Continued: Fine-Tune and Measure Forgetting
+### Cell 19: code - Beat 1 Continued: Fine-Tune and Measure Forgetting
 
 ```python
 # Now fine-tune the same model class on complaints only (CPU, 2 epochs, small dataset).
@@ -1100,7 +1156,7 @@ print("That is catastrophic forgetting in action.")
 
 ---
 
-### Cell 19: markdown - Beat 2: Forgetting Diagram
+### Cell 20: markdown - Beat 2: Forgetting Diagram
 
 ```
 <!-- DIAGRAM: Catastrophic forgetting visualization showing pre-training task accuracy dropping as fine-tuning epochs increase while complaint task accuracy rises -->
@@ -1115,7 +1171,7 @@ The practical lesson: more fine-tuning epochs is not always better.
 
 ---
 
-### Cell 20: markdown - Section 3 Beat 3: Full Analysis Code
+### Cell 21: markdown - Section 3 Beat 3: Full Analysis Code
 
 ```
 ## Mitigation Strategies: Single-Task vs Multitask Fine-Tuning
@@ -1137,7 +1193,7 @@ For this course we focus on A (multitask, shown below) and B (LoRA, next topic).
 
 ---
 
-### Cell 21: code - Beat 3: Multitask Fine-Tuning Demo
+### Cell 22: code - Beat 3: Multitask Fine-Tuning Demo
 
 ```python
 # Beat 3: Multitask fine-tuning -- mix complaint data with general sentiment data.
@@ -1193,7 +1249,7 @@ print("  Multitask:    slower convergence, lower forgetting, more data labelling
 
 ---
 
-### Cell 22: markdown - Lab 2 Instructions
+### Cell 23: markdown - Lab 2 Instructions
 
 ```
 ## Lab 2 - Run the Trainer on the Complaint Dataset (Tier 1, guided)
@@ -1217,7 +1273,7 @@ Run the verification cell after completing the lab.
 
 ---
 
-### Cell 23: code - Lab 2 Starter Code
+### Cell 24: code - Lab 2 Starter Code
 
 ```python
 from transformers import (
@@ -1268,7 +1324,7 @@ print(f"Lab 2 final validation metrics: {lab2_metrics}")
 
 ---
 
-### Cell 24: code - Lab 2 Safety-Net
+### Cell 25: code - Lab 2 Safety-Net
 
 ```python
 # Lab 2 safety-net: run this if you did not finish Lab 2.
@@ -1304,7 +1360,7 @@ if lab2_model is None or lab2_metrics is None:
 
 ---
 
-### Cell 25: code - Lab 2 Verification
+### Cell 26: code - Lab 2 Verification
 
 ```python
 # Verification -- run after completing Lab 2 (or the safety-net).
@@ -1326,7 +1382,7 @@ else:
 
 ---
 
-### Cell 26: markdown - Lab 2 Stretch and Homework
+### Cell 27: markdown - Lab 2 Stretch and Homework
 
 ```
 ### Lab 2 Stretch (fast finishers)
@@ -1358,7 +1414,7 @@ Measure whether weighted sampling improves recall on the minority class (label 0
 
 ---
 
-### Cell 27: markdown - Discussion Prompt 2
+### Cell 28: markdown - Discussion Prompt 2
 
 ```
 ## Discussion (3 to 5 minutes)
@@ -1384,7 +1440,7 @@ Frame your answer from the perspective of the engineer who owns the model in pro
 
 ---
 
-### Cell 28: markdown - Section 4: Capstone - GPU Fine-Tuning on SageMaker
+### Cell 29: markdown - Section 4: Capstone - GPU Fine-Tuning on SageMaker
 
 ```
 ## Section 4 - Capstone: Full Fine-Tuning on GPU via SageMaker
@@ -1415,7 +1471,7 @@ Cost estimate:
 
 ---
 
-### Cell 29: code - Source Dir Inspection
+### Cell 30: code - Source Dir Inspection
 
 ```python
 import os
@@ -1452,7 +1508,7 @@ if os.path.exists(req_path):
 
 ---
 
-### Cell 30: code - HuggingFace Estimator Setup
+### Cell 31: code - HuggingFace Estimator Setup
 
 ```python
 from sagemaker.huggingface import HuggingFace
@@ -1494,7 +1550,7 @@ print(f"  py_version:           {estimator.py_version}")
 
 ---
 
-### Cell 31: code - Launch the Training Job
+### Cell 32: code - Launch the Training Job
 
 ```python
 import time
@@ -1515,7 +1571,19 @@ print("Run the polling cell below to check status.")
 
 ---
 
-### Cell 32: code - Poll Training Job Status
+### Cell 33: code - training_job_name Safety-Net
+
+```python
+# Safety-net: run this if your kernel restarted after launching the training job.
+# SKIP if training_job_name is already defined.
+if 'training_job_name' not in dir() or training_job_name is None:
+    training_job_name = "<PASTE YOUR JOB NAME HERE>"
+    print(f"Using safety-net training_job_name: {training_job_name}")
+```
+
+---
+
+### Cell 34: code - Poll Training Job Status
 
 ```python
 import boto3
@@ -1560,7 +1628,7 @@ while True:
 
 ---
 
-### Cell 33: code - Retrieve Training Metrics from CloudWatch
+### Cell 35: code - Retrieve Training Metrics from CloudWatch
 
 ```python
 import boto3
@@ -1607,7 +1675,7 @@ except logs_client.exceptions.ResourceNotFoundException:
 
 ---
 
-### Cell 34: code - Inspect Model Artifacts in S3
+### Cell 36: code - Inspect Model Artifacts in S3
 
 ```python
 # After the job completes, model artifacts are saved to S3.
@@ -1638,7 +1706,7 @@ for obj in response.get("Contents", []):
 
 ---
 
-### Cell 35: markdown - Section 5: Single-Task vs Multitask Fine-Tuning Summary
+### Cell 37: markdown - Section 5: Single-Task vs Multitask Fine-Tuning Summary
 
 ```
 ## Section 5 - Single-Task vs Multitask Fine-Tuning
@@ -1667,7 +1735,7 @@ The key insight: the right answer is almost never "run more epochs of single-tas
 
 ---
 
-### Cell 36: code - Cost Comparison Summary
+### Cell 38: code - Cost Comparison Summary
 
 ```python
 # Cost comparison: full fine-tuning vs inference only vs PEFT (preview for Topic 7)
@@ -1727,7 +1795,7 @@ print("with near-zero catastrophic forgetting. That is why it dominates producti
 
 ---
 
-### Cell 37: markdown - Section 4 Wrap-Up and Bridge to Topic 6b
+### Cell 39: markdown - Section 4 Wrap-Up and Bridge to Topic 6b
 
 ```
 ## Wrap-Up and Key Takeaways
@@ -1770,7 +1838,7 @@ production teams actually use today.
 
 ---
 
-### Cell 38: code - Final Recap Code Cell (prevents 3-markdown-chain)
+### Cell 40: code - Final Recap Code Cell (prevents 3-markdown-chain)
 
 ```python
 # Quick recap: variable inventory for Topic 6b and Topic 7a.
@@ -1823,11 +1891,12 @@ print("training_job_name is the SageMaker job identifier for cost queries.")
 
 | Section | Concept | Beat 1 | Beat 2 | Beat 3 | Beat 4 |
 |---------|---------|--------|--------|--------|--------|
-| 1 | Memory cost of fine-tuning | Cell 5 (OOM calc) | Cell 6 (diagram) | Cell 8-9 (Trainer demo) | Lab 1 (tokenize) |
-| 3 | Catastrophic forgetting | Cell 17-18 (baseline + drop) | Cell 19 (diagram) | Cell 20-21 (multitask) | Lab 2 (Trainer run) |
-| 4 | SageMaker GPU job | Cell 29 (source dir check) | -- | Cell 30-31 (estimator + fit) | Cells 32-34 (poll + artifacts) |
+| 2 | HuggingFace Trainer API | Cell 8 (broken eval_strategy) | -- | Cell 9-10 (working Trainer demo) | Lab 1 (tokenize) |
+| 1 | Memory cost of fine-tuning | Cell 5 (OOM calc) | Cell 6 (diagram) | Cell 9-10 (Trainer demo) | Lab 1 (tokenize) |
+| 3 | Catastrophic forgetting | Cell 18-19 (baseline + drop) | Cell 20 (diagram) | Cell 21-22 (multitask) | Lab 2 (Trainer run) |
+| 4 | SageMaker GPU job | Cell 30 (source dir check) | -- | Cell 31-32 (estimator + fit) | Cells 34-36 (poll + artifacts) |
 
-Note: Section 4 (SageMaker capstone) uses Cells 32-34 as the lab-equivalent experience
+Note: Section 4 (SageMaker capstone) uses Cells 34-36 as the lab-equivalent experience
 (students watch the job run, check logs, inspect artifacts). No separate Tier 1 lab here
 because the capstone itself IS the hands-on activity.
 
@@ -1846,12 +1915,13 @@ because the capstone itself IS the hands-on activity.
 - [x] No em dashes, en dashes, Unicode mult signs, or emojis anywhere
 - [x] Plain ASCII only in all cell bodies
 - [x] No more than 3 consecutive markdown cells without a code cell
-- [x] Safety-net cells after Lab 1 (Cell 12) and Lab 2 (Cell 24)
+- [x] Safety-net cells after Lab 1 (Cell 13), Lab 2 (Cell 25), and training_job_name (Cell 33)
 - [x] # YOUR CODE placeholders do NOT hint at the answer
-- [x] Peer discussion prompts in Cells 15 and 27
-- [x] Homework Extensions after Lab 1 (Cell 14) and Lab 2 (Cell 26)
-- [x] Stretch versions after Lab 1 (Cell 14) and Lab 2 (Cell 26)
-- [x] STAR method applied to both labs (Cells 10 and 22)
-- [x] Two diagrams exactly (Cells 6 and 19)
+- [x] Peer discussion prompts in Cells 16 and 28
+- [x] Homework Extensions after Lab 1 (Cell 15) and Lab 2 (Cell 27)
+- [x] Stretch versions after Lab 1 (Cell 15) and Lab 2 (Cell 27)
+- [x] STAR method applied to both labs (Cells 11 and 23)
+- [x] Two diagrams exactly (Cells 6 and 20)
+- [x] Beat 1 (broken code) before Beat 3 in Section 2 (Cell 8)
 - [x] No AI-tells: no em dashes used (checked: "to" used instead of "--")
 - [x] Variable continuity from Topic 5 documented

@@ -3,6 +3,7 @@
 # Last updated: 2026-05-11
 
 ## Framework Folders (Prerequisites - not in the 3-day outline)
+<!-- F1 Status: done -->
 
 These run in SageMaker Studio locally (no remote training). Adapted from PytorchPrimer.
 
@@ -62,9 +63,9 @@ No heavy code - conceptual + interactive demos via API.
 famous models (BERT, GPT, T5, LLaMA overview), GenAI project lifecycle vs ML lifecycle.
 **Runs**: in Studio notebook (conceptual + light inference demos, no training).
 
-- **Status**: not_started
-- [ ] Run `/run-research-topic 2`
-- [ ] Run `/build-topic-notebook 2`
+- **Status**: done
+- [x] Run `/run-research-topic 2`
+- [x] Run `/build-topic-notebook 2`
 - [ ] Run `/validate-notebooks 2`
 - [ ] Run `/build-diagrams 2`
 
@@ -84,10 +85,10 @@ dot-product attention in plain Python/numpy. Capstone: implement scaled dot-prod
 
 **Adaptation needed**: SageMaker env setup, four-beat arc restructure, STAR method labs, diagram placeholders.
 
-- **Status**: not_started
-- [ ] Run `/run-research-topic 3`
-- [ ] Run `/build-topic-notebook 3`
-- [ ] Run `/validate-notebooks 3`
+- **Status**: done
+- [x] Run `/run-research-topic 3`
+- [x] Run `/build-topic-notebook 3`
+- [x] Run `/validate-notebooks 3`
 - [ ] Run `/build-diagrams 3`
 
 ---

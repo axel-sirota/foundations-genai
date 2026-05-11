@@ -1070,6 +1070,29 @@ lora_optimizer = torch.optim.Adam(
 
 ---
 
+### Cell 16b: code - Safety-Net for lora_model and trainable_lora
+
+```python
+# Safety-net: run this if Cell 16 timed out or failed.
+# SKIP if lora_model and trainable_lora are already defined.
+if 'lora_model' not in dir() or lora_model is None:
+    print("Rebuilding lora_model from safety-net...")
+    import copy
+    _base = copy.deepcopy(pretrained_model) if 'pretrained_model' in dir() else FFNModel().to(device)
+    lora_model = replace_fc_with_lora(_base, rank=8, lora_alpha=16)
+    lora_model.to(device)
+    total_lora    = sum(p.numel() for p in lora_model.parameters())
+    trainable_lora = sum(p.numel() for p in lora_model.parameters() if p.requires_grad)
+    train_pre = sum(p.numel() for p in _base.parameters() if p.requires_grad) if 'train_pre' not in dir() else train_pre
+    lora_optimizer = torch.optim.Adam(
+        [p for p in lora_model.parameters() if p.requires_grad], lr=3e-4)
+    print(f"lora_model ready. Trainable params: {trainable_lora:,}")
+else:
+    print("lora_model already defined, skipping safety-net.")
+```
+
+---
+
 ### Cell 17: markdown - Discussion Prompt 1
 
 ```
@@ -1496,6 +1519,20 @@ print("Or run the polling cell below to check status every 60 seconds.")
 
 ---
 
+### Cell 31b: code - Safety-Net for training_job_name
+
+```python
+# Safety-net: run this if your kernel restarted after launching the training job.
+# SKIP if training_job_name is already defined.
+if 'training_job_name' not in dir() or training_job_name is None:
+    training_job_name = "<PASTE YOUR JOB NAME HERE>"
+    print(f"Using safety-net training_job_name: {training_job_name}")
+else:
+    print(f"training_job_name already defined: {training_job_name}")
+```
+
+---
+
 ### Cell 32: code - Poll Training Job Status
 
 ```python
@@ -1723,6 +1760,7 @@ print("Next: Topic 7b -- PEFT LoRA on DistilBERT (encoder-only, classification)"
 | 14 | markdown | Section 2 header + parameter comparison diagram |
 | 15 | code | Pre-train FFN on FashionMNIST (Beat 3 setup) |
 | 16 | code | Replace FC layers with LoRA; parameter count |
+| 16b | code | Safety-net for lora_model and trainable_lora |
 | 17 | markdown | Discussion prompt 1 (rank trade-offs) |
 | 18 | code | Fine-tune with LoRA on MNIST |
 | 19 | markdown | Lab 2 instructions (STAR method) |
@@ -1738,6 +1776,7 @@ print("Next: Topic 7b -- PEFT LoRA on DistilBERT (encoder-only, classification)"
 | 29 | code | Verify scripts_topic7a/ contents |
 | 30 | code | Define HuggingFace estimator |
 | 31 | code | Launch training job (wait=False) |
+| 31b | code | Safety-net for training_job_name |
 | 32 | code | Poll training job status |
 | 33 | code | View CloudWatch logs |
 | 34 | markdown | Section 4 interpretation notes |
@@ -1745,11 +1784,12 @@ print("Next: Topic 7b -- PEFT LoRA on DistilBERT (encoder-only, classification)"
 | 36 | markdown | Wrap-up: key takeaways + bridge to 7b |
 | 37 | code | Final summary cell |
 
-Total: 37 cells. Markdown chains never exceed 3 consecutive without a code cell.
+Total: 39 cells (37 original + Cell 16b safety-net for lora_model + Cell 31b safety-net for training_job_name). Markdown chains never exceed 3 consecutive without a code cell.
 Two diagrams: lora-decomposition (Cell 7) and lora-parameter-comparison (Cell 14).
 Two Tier-1 labs: Lab 1 (Cells 9-13, LoraLayer implementation), Lab 2 (Cells 19-23, layer replacement).
 Every lab has safety-net, verification, stretch, and homework extension.
-Variable `lora_model` fed to Cell 18; safety-net in Cell 21 ensures downstream cells run.
+Variable `lora_model` fed to Cell 18; Cell 16b safety-net rebuilds lora_model if Cell 16 fails.
+Variable `training_job_name` fed to Cells 32-35, 37; Cell 31b safety-net allows kernel-restart recovery.
 
 ---
 
@@ -1777,6 +1817,8 @@ Variable `lora_model` fed to Cell 18; safety-net in Cell 21 ensures downstream c
 - [x] target_modules=["q", "v"] for Flan-T5-small (correct projection names)
 - [x] TaskType.SEQ_2_SEQ_LM for encoder-decoder task type
 - [x] Safety-net cells after Lab 1 (Cell 11) and Lab 2 (Cell 21)
+- [x] Safety-net cell after Cell 16 (Cell 16b) for lora_model and trainable_lora
+- [x] Safety-net cell after Cell 31 (Cell 31b) for training_job_name kernel-restart recovery
 - [x] No more than 3 consecutive markdown cells without a code cell
 - [x] # YOUR CODE placeholders do not hint at the answer
 - [x] Exactly 2 diagrams with correct <!-- DIAGRAM: --> + [View diagram] format

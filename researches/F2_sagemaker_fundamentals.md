@@ -326,7 +326,7 @@ if __name__ == "__main__":
 
 ## Cell-by-Cell Plan
 
-Total cells: 46 (28 code + 18 markdown). Markdown cells never chain more than 3 in a row without a code cell.
+Total cells: 43 (28 code + 15 markdown). Markdown cells never chain more than 3 in a row without a code cell.
 
 ---
 
@@ -389,24 +389,15 @@ The goal is NOT model accuracy. The goal is that you internalize the pattern.
 
 ### Cell 3: [type: markdown] - Section 1: SageMaker Session
 
-**Purpose**: Introduce the concept of a SageMaker Session before showing broken code.
+**Purpose**: Section header, one line of context, straight into broken code.
 **Content**:
 ```
 ## Section 1: SageMaker Session Setup
 
-Before you can do anything in SageMaker, you need three things:
-
-- **Session**: A Python object that talks to the SageMaker service in your region.
-  Think of it as your authenticated connection to the control plane.
-- **Role**: The IAM role that SageMaker (not you) will assume when it runs your training job.
-  The training instance calls AWS APIs using this role, not your personal credentials.
-- **Bucket**: The S3 bucket where training data goes in and model artifacts come out.
-
-### What goes wrong first
-
+Three objects anchor every SageMaker notebook: a Session, an IAM Role, and an S3 Bucket.
 Let us see what happens when developers try to skip the session and call AWS directly.
 ```
-**Notes**: One markdown cell before the broken code. Valid.
+**Notes**: Two lines only. Immediately followed by broken code.
 
 ---
 
@@ -619,44 +610,20 @@ print(f"  recent_jobs:   {recent_jobs}")
 
 ---
 
-### Cell 11: [type: markdown] - Peer discussion prompt 1
+### Cell 11: [type: markdown] - Section 2: S3 Read/Write header
 
-**Purpose**: Force students to think about implications before moving to S3.
-**Content**:
-```
-### Discussion (3 min)
-
-The IAM role that runs your training job has `AmazonSageMakerFullAccess`
-but that does NOT include `sagemaker-mlflow:*`. These are separate IAM namespaces.
-
-- Why would AWS split SageMaker and SageMaker MLflow into separate namespaces?
-- If a training job fails with a 403 on `GetExperimentByName`, where do you look?
-- In a Barclays production setup, who would own the inline policy that grants
-  `sagemaker-mlflow:*`? The ML engineer or the platform team?
-
-Hold these questions in mind -- we will hit the MLflow IAM issue directly in Section 6.
-```
-**Notes**: Discussion before Section 2. Keeps the four-beat arc tight. No code in this cell -- it sits between two code cells (Cell 10 and Cell 12).
-
----
-
-### Cell 12: [type: markdown] - Section 2: S3 Read/Write header
-
-**Purpose**: Section header. One markdown cell before the broken code (valid - not chaining).
+**Purpose**: Section header. One markdown cell before the broken code.
 **Content**:
 ```
 ## Section 2: S3 Read and Write
 
 S3 is the data layer for all SageMaker training. Input goes in. Artifacts come out.
-The session gives you helpers for both directions, but they wrap boto3 S3 calls.
-
-### What goes wrong first
 ```
-**Notes**: Short section header. Immediately followed by broken code in Cell 13.
+**Notes**: Two lines only. Immediately followed by broken code in Cell 12.
 
 ---
 
-### Cell 13: [type: code] - Beat 1: Broken S3 upload (wrong API)
+### Cell 12: [type: code] - Beat 1: Broken S3 upload (wrong API)
 
 **Purpose**: Show the wrong way to upload. Runs and fails (or produces wrong result).
 **Content**:
@@ -695,7 +662,7 @@ print("returns the S3 URI you pass directly to estimator.fit(input_data).")
 
 ---
 
-### Cell 14: [type: code] - Beat 3: Working S3 upload and download
+### Cell 13: [type: code] - Beat 3: Working S3 upload and download
 
 **Purpose**: The canonical S3 pattern. Heavily commented.
 **Content**:
@@ -751,28 +718,21 @@ print(content[:200])
 
 ---
 
-### Cell 15: [type: markdown] - Section 3: Source Directory header
+### Cell 14: [type: markdown] - Section 3: Source Directory header
 
 **Purpose**: Transition to source dir creation. One markdown cell.
 **Content**:
 ```
 ## Section 3: Packaging Your Training Code
 
-SageMaker does not run your local Python file directly.
-It uploads a directory (your source_dir) to S3, then the training instance
-downloads and runs it inside the container.
-
-The directory MUST contain:
-- `train.py` (or whatever you set as `entry_point`)
-- `requirements.txt` (EXACTLY this name -- any other name is silently ignored)
-
-Let us create both files now so you can inspect them before launching the job.
+SageMaker uploads your source directory to S3 and runs it inside a container.
+The directory MUST contain `train.py` and `requirements.txt` (exactly these names).
 ```
-**Notes**: Short header. Followed immediately by code.
+**Notes**: Two lines. Followed immediately by code.
 
 ---
 
-### Cell 16: [type: code] - Create source_dir, requirements.txt, and train.py
+### Cell 15: [type: code] - Create source_dir, requirements.txt, and train.py
 
 **Purpose**: Write both files to disk. Students see the full content of what runs on the remote instance. This is a critical pedagogical moment -- instructors should slow down here.
 **Content**:
@@ -804,7 +764,7 @@ print(requirements)
 
 ---
 
-### Cell 17: [type: code] - Write train.py (part 1: imports, model, data)
+### Cell 16: [type: code] - Write train.py (part 1: imports, model, data)
 
 **Purpose**: First half of train.py. Students read the model definition and synthetic data generator.
 **Content**:
@@ -883,7 +843,7 @@ print(f"Lines so far: {len(train_py_part1.splitlines())}")
 
 ---
 
-### Cell 18: [type: code] - Write train.py (part 2: training loop and argparse)
+### Cell 17: [type: code] - Write train.py (part 2: training loop and argparse)
 
 **Purpose**: Second half of train.py. Students see the SageMaker-specific patterns: SM_MODEL_DIR, argparse, saving artifacts.
 **Content**:
@@ -994,31 +954,21 @@ print("scripts_cpu/ is ready for upload.")
 
 ---
 
-### Cell 19: [type: markdown] - Section 4 header: Launching the job
+### Cell 18: [type: markdown] - Section 4 header: Launching the job
 
 **Purpose**: Bridge into the main lab. One markdown.
 **Content**:
 ```
 ## Section 4: Launching a Remote CPU Training Job
 
-The PyTorch estimator is the SageMaker object that bundles:
-- Which container to use (framework + version)
-- Which instance to run on
-- Your source directory and entry point
-- Your hyperparameters
-- Your IAM role
-
-Calling `.fit()` on the estimator uploads your source_dir to S3 and
-submits the job to the SageMaker control plane. The notebook does not
-execute the training -- the ml.m5.xlarge instance does.
-
-### What goes wrong first
+Calling `.fit()` on a PyTorch estimator uploads your source directory to S3 and
+submits the job. The notebook kernel stays free -- the ml.m5.xlarge does the work.
 ```
-**Notes**: Direct setup for the Beat 1 cell. No chaining.
+**Notes**: Two lines. Straight into Beat 1.
 
 ---
 
-### Cell 20: [type: code] - Beat 1: Wrong estimator config (HuggingFace on CPU)
+### Cell 19: [type: code] - Beat 1: Wrong estimator config (HuggingFace on CPU)
 
 **Purpose**: Show the specific error that L1 from SAGEMAKER_LESSONS_LEARNED.md documents. Runs and produces the actual exception.
 **Content**:
@@ -1063,7 +1013,7 @@ except ValueError as e:
 
 ---
 
-### Cell 21: [type: code] - Beat 3: Working estimator setup (do not call .fit() yet)
+### Cell 20: [type: code] - Beat 3: Working estimator setup (do not call .fit() yet)
 
 **Purpose**: Build the correct estimator. Do NOT call .fit() in this cell - that is for the lab.
 **Content**:
@@ -1119,70 +1069,55 @@ print(f"  entry_point:       {estimator.entry_point}")
 
 ---
 
-### Cell 22: [type: markdown] - Beat 4 Lab 2 instructions (Tier 2 - hard)
+### Cell 21: [type: markdown] - Beat 4 Lab 2 instructions (Tier 1 - guided)
 
-**Purpose**: Main lab. STAR format. Tier 2 = less prescriptive, no step-by-step comments.
+**Purpose**: Main lab. STAR format. Tier 1 = numbered steps, fully scaffolded.
 **Content**:
 ```
-### Lab 2 (Tier 2, hard) -- Launch the Training Job (25-35 min)
+### Lab 2 (Tier 1, guided) -- Launch the Training Job (20 min)
 
-**Situation**: The estimator object from the cell above is configured.
+**Situation**: The estimator from the cell above is configured.
 Your source directory `scripts_cpu/` contains `train.py` and `requirements.txt`.
-You need to submit the job to SageMaker and wait for it to finish.
 
-**Task**: Complete the `launch_training_job()` function. It must:
+**Task**: Submit the job to SageMaker and capture the job name.
 
-1. Call `estimator.fit()` with `wait=False` so the notebook does not block.
-   Pass `inputs` as `None` (our train.py uses synthetic data -- no S3 input needed).
-2. Capture the training job name from `estimator.latest_training_job.name`
-   and store it in `job_name`.
-3. Print the job name and the CloudWatch log group where logs will appear.
+**Action**: Fill in the two `= None  # YOUR CODE` lines.
 
-Do NOT poll for completion in this function -- that is Lab 3.
+Step 1: Call `estimator.fit(inputs=None, wait=False)` to submit without blocking.
+Step 2: Capture `estimator.latest_training_job.name` and store it in `job_name`.
 
-**Action**: Fill in the function body below.
-
-**Result**: The verification cell prints the job name. The job will appear in
-SageMaker Studio -> Training jobs within 60 seconds.
-
-**Stretch (fast finishers)**: After launching the job, open the SageMaker console
-and find your job. What does the "Container logs" link show before training starts?
+**Result**: The verification cell prints the job name and confirms the job is InProgress.
+The job will appear in SageMaker Studio -> Training jobs within 60 seconds.
 ```
-**Notes**: Tier 2 means we give the function signature but not the step-by-step numbered comments.
+**Notes**: Tier 1, fully guided. F2 is a framework prereq so all labs are Tier 1.
 
 ---
 
-### Cell 23: [type: code] - Beat 4 Lab 2 starter code
+### Cell 22: [type: code] - Beat 4 Lab 2 starter code
 
-**Purpose**: Multi-step lab with function signature only. Less prescriptive than Tier 1.
+**Purpose**: Tier 1 guided lab with numbered step comments.
 **Content**:
 ```python
 # Lab 2: Launch the training job.
-# Complete the function body. estimator is already built (Cell 21).
+# estimator is already built in the cell above.
 
-def launch_training_job(estimator, s3_data_uri):
-    """
-    Submit the training job to SageMaker.
+# Step 1: Submit the job without blocking the notebook kernel.
+# Hint: call estimator.fit() with inputs=None and wait=False.
+estimator.fit(None)  # YOUR CODE: replace None with the correct call
 
-    Args:
-        estimator: configured PyTorch estimator (already built above)
-        s3_data_uri: S3 URI for input data (pass None for synthetic data jobs)
+# Step 2: Capture the training job name.
+# SageMaker auto-generates a name like "pytorch-training-2026-..."
+# Hint: use estimator.latest_training_job.name
+job_name = None  # YOUR CODE
 
-    Returns:
-        job_name: the SageMaker training job name (string)
-    """
-    job_name = None  # YOUR CODE
-    return job_name
-
-
-# Call your function
-job_name = launch_training_job(estimator, s3_data_uri=None)
+print(f"Job submitted: {job_name}")
+print(f"CloudWatch logs: /aws/sagemaker/TrainingJobs / {job_name}/algo-1")
 ```
-**Notes**: Two variables to complete: calling .fit() and extracting .latest_training_job.name. Less prescriptive than Lab 1 on purpose (Tier 2).
+**Notes**: Tier 1 -- each step is spelled out. Two placeholders to fill.
 
 ---
 
-### Cell 24: [type: code] - Lab 2 safety-net
+### Cell 23: [type: code] - Lab 2 safety-net
 
 **Purpose**: Safety-net for the main lab so downstream monitoring cells work.
 **Content**:
@@ -1201,7 +1136,7 @@ if job_name is None:
 
 ---
 
-### Cell 25: [type: code] - Lab 2 verification
+### Cell 24: [type: code] - Lab 2 verification
 
 **Purpose**: Confirm job was submitted before moving to monitoring.
 **Content**:
@@ -1224,28 +1159,21 @@ print(f"  Log stream: {job_name}/algo-1")
 
 ---
 
-### Cell 26: [type: markdown] - Section 5 header: Monitoring
+### Cell 25: [type: markdown] - Section 5 header: Monitoring
 
 **Purpose**: Section header before monitoring cells.
 **Content**:
 ```
 ## Section 5: Monitoring the Job
 
-The job is running on ml.m5.xlarge. Your notebook kernel is free.
-You need two things: job status and logs.
-
-- **Status**: poll `describe_training_job` until status is `Completed` or `Failed`
-- **Logs**: CloudWatch log group `/aws/sagemaker/TrainingJobs`,
-  stream `{job_name}/algo-1`
-
-The SageMaker SDK provides `sagemaker.logs` utilities but we will use the raw
-boto3 API so you understand what is happening under the hood.
+Poll `describe_training_job` for status. Read logs from CloudWatch at
+`/aws/sagemaker/TrainingJobs / {job_name}/algo-1`.
 ```
-**Notes**: One markdown. Followed by code.
+**Notes**: Two lines. Followed by code.
 
 ---
 
-### Cell 27: [type: code] - Beat 3: Polling job status with timeout
+### Cell 26: [type: code] - Beat 3: Polling job status with timeout
 
 **Purpose**: The canonical polling pattern. Used in all subsequent capstone notebooks.
 **Content**:
@@ -1299,7 +1227,7 @@ print(f"\nFinal status: {final_status}")
 
 ---
 
-### Cell 28: [type: code] - CloudWatch log tailing
+### Cell 27: [type: code] - CloudWatch log tailing
 
 **Purpose**: Show how to read the training logs from CloudWatch. Students see their own stdout output from train.py.
 **Content**:
@@ -1342,7 +1270,7 @@ tail_cloudwatch_logs(logs_client, log_group, log_stream)
 
 ---
 
-### Cell 29: [type: code] - Download model artifacts from S3
+### Cell 28: [type: code] - Download model artifacts from S3
 
 **Purpose**: Show how to get the trained model back from S3 and load it locally.
 **Content**:
@@ -1402,54 +1330,24 @@ print(f"Parameters: {sum(p.numel() for p in model.parameters()):,}")
 
 ---
 
-### Cell 30: [type: markdown] - Peer discussion prompt 2
-
-**Purpose**: Discussion between Section 5 and Section 6.
-**Content**:
-```
-### Discussion (3 min)
-
-You just ran a training job remotely and got the artifact back.
-
-- Your notebook kernel was free during training. What would you do with that time
-  in a production workflow where the job takes 4 hours?
-- The model artifact is 200KB for this tiny MLP. A fine-tuned DistilBERT is 500MB.
-  How does the S3 artifact storage cost scale with model size and number of experiments?
-- SageMaker charged you ~$0.019 for this 6-minute job (ml.m5.xlarge at $0.19/hr).
-  The GPU equivalent (ml.g4dn.xlarge at $0.74/hr) for a 30-minute job costs ~$0.37.
-  When does the economics of remote training beat a local GPU?
-```
-**Notes**: Concrete numbers make the discussion productive. Third point sets up the cost conversation that recurs throughout Day 2.
-
----
-
-### Cell 31: [type: markdown] - Section 6 header: MLflow
+### Cell 29: [type: markdown] - Section 6 header: MLflow
 
 **Purpose**: Section header for MLflow. One markdown before Beat 1.
 **Content**:
 ```
 ## Section 6: MLflow Experiment Tracking
 
-You now have a trained model artifact in S3. But if you run this job 20 times
-with different hyperparameters, which run produced the best model?
+Which of the 20 training runs produced the best model? SageMaker Managed MLflow
+records hyperparameters, per-epoch metrics, and model artifacts automatically.
 
-SageMaker Managed MLflow is a hosted tracking server that records:
-- Hyperparameters (what you configured)
-- Metrics per epoch (loss, accuracy)
-- Model artifacts (linked to the S3 location)
-- Run metadata (duration, instance type, who launched it)
-
-IMPORTANT IAM note: `AmazonSageMakerFullAccess` covers `sagemaker:*` but NOT
-`sagemaker-mlflow:*`. Both are required. This account has both -- but if you
-see a 403 on GetExperimentByName, this is why.
-
-### What goes wrong first
+IMPORTANT: `AmazonSageMakerFullAccess` covers `sagemaker:*` but NOT `sagemaker-mlflow:*`.
+If you see a 403 on GetExperimentByName, add the `sagemaker-mlflow:*` inline policy.
 ```
-**Notes**: IAM callout is mandatory per the Lessons Learned doc.
+**Notes**: IAM callout kept, trimmed to 2 lines. Followed immediately by Beat 1 code.
 
 ---
 
-### Cell 32: [type: code] - Beat 1: Wrong MLflow version
+### Cell 30: [type: code] - Beat 1: Wrong MLflow version
 
 **Purpose**: Show the "not supported" error when using the wrong MlflowVersion.
 **Content**:
@@ -1477,7 +1375,7 @@ except Exception as e:
 
 ---
 
-### Cell 33: [type: markdown] - Beat 2: Diagram placeholder MLflow
+### Cell 31: [type: markdown] - Beat 2: Diagram placeholder MLflow
 
 **Purpose**: Second and final diagram placeholder.
 **Content**:
@@ -1496,7 +1394,7 @@ Your notebook queries the tracking server via the mlflow Python client.
 
 ---
 
-### Cell 34: [type: code] - Beat 3: Get or create MLflow tracking server
+### Cell 32: [type: code] - Beat 3: Get or create MLflow tracking server
 
 **Purpose**: Check if the server already exists, create it if not, and get the tracking URI.
 **Content**:
@@ -1548,7 +1446,7 @@ mlflow_tracking_uri = get_or_create_mlflow_server(
 
 ---
 
-### Cell 35: [type: code] - Beat 3 continued: Query MLflow runs from the previous job
+### Cell 33: [type: code] - Beat 3 continued: Query MLflow runs from the previous job
 
 **Purpose**: Show the mlflow client querying runs from the notebook (not the training script).
 **Content**:
@@ -1590,28 +1488,21 @@ except Exception as e:
 
 ---
 
-### Cell 36: [type: markdown] - Section 7 header: Model Registry
+### Cell 34: [type: markdown] - Section 7 header: Model Registry
 
 **Purpose**: Section header. One markdown.
 **Content**:
 ```
 ## Section 7: Registering the Trained Model
 
-You have a model artifact at `model_artifact_uri`. Before you deploy it,
-register it in the SageMaker Model Registry. The registry gives you:
-
-- A versioned record of every model you train
-- Approval workflow (pending -> approved -> deployed)
-- Lineage: which job produced this model, on what data, with what hyperparameters
-
-Every model version starts in "PendingManualApproval" status.
-You (or your team) approve it before it can be deployed.
+Register the artifact before you deploy it. Every version starts in
+"PendingManualApproval" -- an approver promotes it to "Approved" before deployment.
 ```
-**Notes**: One markdown. Followed by code.
+**Notes**: Two lines. Followed immediately by code.
 
 ---
 
-### Cell 37: [type: code] - Beat 3: Register model in Model Registry
+### Cell 35: [type: code] - Beat 3: Register model in Model Registry
 
 **Purpose**: Create model package group and register the model artifact.
 **Content**:
@@ -1673,7 +1564,7 @@ print("(An approver must change this to 'Approved' before deployment)")
 
 ---
 
-### Cell 38: [type: code] - Approve and promote model version
+### Cell 36: [type: code] - Approve and promote model version
 
 **Purpose**: Approve the model so it can be deployed.
 **Content**:
@@ -1695,30 +1586,21 @@ print("Ready for deployment.")
 
 ---
 
-### Cell 39: [type: markdown] - Section 8 header: Endpoint deployment
+### Cell 37: [type: markdown] - Section 8 header: Endpoint deployment
 
 **Purpose**: Section header.
 **Content**:
 ```
 ## Section 8: Deploying to a Real-Time Endpoint
 
-A SageMaker endpoint runs your model behind a managed HTTPS REST API.
-You send a JSON payload, you get a prediction back.
-
-The endpoint uses a different instance from the training job.
-Training was on ml.m5.xlarge (4 vCPU, 16 GB RAM).
-Endpoint runs on ml.m5.xlarge as well for this tiny model.
-For larger models (DistilBERT at 250MB+), use ml.m5.xlarge minimum
-to avoid out-of-memory errors.
-
-Deploying takes 3-5 minutes. The endpoint stays running until you delete it.
-Endpoints cost money while running -- we delete ours at the end of this notebook.
+`.deploy()` creates a managed HTTPS endpoint. Send JSON, get predictions back.
+Deploying takes 3-5 minutes. Endpoints cost money while running -- delete when done.
 ```
-**Notes**: Cost reminder. Students need to know they must delete endpoints.
+**Notes**: Two lines. Cost reminder kept. Followed immediately by code.
 
 ---
 
-### Cell 40: [type: code] - Deploy endpoint from registered model
+### Cell 38: [type: code] - Deploy endpoint from registered model
 
 **Purpose**: Deploy the registered model version to a real-time endpoint.
 **Content**:
@@ -1761,7 +1643,7 @@ print(f"Endpoint status: InService")
 
 ---
 
-### Cell 41: [type: code] - Invoke the endpoint
+### Cell 39: [type: code] - Invoke the endpoint
 
 **Purpose**: Show how to send a prediction request to the live endpoint.
 **Content**:
@@ -1808,7 +1690,7 @@ except Exception as e:
 
 ---
 
-### Cell 42: [type: code] - Delete endpoint (cleanup)
+### Cell 40: [type: code] - Delete endpoint (cleanup)
 
 **Purpose**: Critical cleanup step. Endpoints cost money while running.
 **Content**:
@@ -1832,27 +1714,7 @@ print(f"  aws sagemaker delete-endpoint-config --endpoint-config-name {ENDPOINT_
 
 ---
 
-### Cell 43: [type: markdown] - Lab 2 Stretch target
-
-**Purpose**: Stretch for fast finishers. Standalone markdown after the main lab flow.
-**Content**:
-```
-### Lab 2 Stretch (fast finishers) -- Modify the Training Script
-
-You completed the main training job. Now change the model:
-
-1. In `scripts_cpu/train.py`, change `hidden_dim` from 64 to 128 and add a third linear layer.
-2. Create a new estimator with `hyperparameters={"epochs": 8, "hidden-dim": 128}`.
-3. Call `.fit(wait=False)` and monitor the new job alongside the first one.
-4. Compare the final val_acc of both runs.
-
-You do NOT need to re-run the endpoint cells -- just compare the training metrics.
-```
-**Notes**: Stretch is markdown only. Students implement in new cells below this point. No starter code for stretch.
-
----
-
-### Cell 44: [type: markdown] - Homework Extension header
+### Cell 41: [type: markdown] - Homework Extension header
 
 **Purpose**: Homework instruction markdown.
 **Content**:
@@ -1905,7 +1767,7 @@ with 10 rows of metrics (one per epoch), hyperparameters logged, and a model art
 
 ---
 
-### Cell 45: [type: code] - Homework Extension starter cell
+### Cell 42: [type: code] - Homework Extension starter cell
 
 **Purpose**: Blank cell for homework work. Keeps the notebook structure clean.
 **Content**:
@@ -1920,7 +1782,7 @@ estimator_mlflow = None  # YOUR CODE
 
 ---
 
-### Cell 46: [type: markdown] - Wrap-up and bridge to Topic 4
+### Cell 43: [type: markdown] - Wrap-up and bridge to Topic 4
 
 **Purpose**: Close the notebook. Key takeaways. Bridge to next topic.
 **Content**:
@@ -1974,17 +1836,17 @@ Every constraint from SAGEMAKER_LESSONS_LEARNED.md and CORE_TECHNOLOGIES_AND_DEC
 
 | Constraint | Cell(s) where enforced |
 |------------|------------------------|
-| `sagemaker>=2.200.0,<3.0.0` | Cell 2 (install), Cell 46 (takeaway 4) |
-| `framework_version="2.8.0"`, `py_version="py312"` | Cell 21 (estimator), Cell 20 (beat 1 comment) |
-| HuggingFace estimator = GPU only | Cell 20 (Beat 1 broken code), Cell 39 (section header), Cell 46 (takeaway 4) |
-| `requirements.txt` exact name | Cell 15 (section header), Cell 16 (comments), Cell 46 (takeaway 3) |
-| `eval_strategy` not `evaluation_strategy` | Cell 17/18 train.py -- not applicable (no TrainingArguments in MLP) |
-| No `evaluate` library | Cell 17/18 train.py (compute_accuracy inline), Cell 16 requirements.txt |
-| `ResourceNotFound` not `ResourceNotFoundException` | Cell 34 (MLflow get_or_create) |
-| `MlflowVersion="2.13.2"` | Cell 32 (Beat 1 broken), Cell 34 (Beat 3 correct) |
-| `numpy<2` | Cell 2 (install), Cell 16 (requirements.txt), Cell 17/18 (train.py) |
+| `sagemaker>=2.200.0,<3.0.0` | Cell 2 (install), Cell 43 (takeaway 4) |
+| `framework_version="2.8.0"`, `py_version="py312"` | Cell 20 (estimator), Cell 19 (beat 1 comment) |
+| HuggingFace estimator = GPU only | Cell 19 (Beat 1 broken code), Cell 37 (section header), Cell 43 (takeaway 4) |
+| `requirements.txt` exact name | Cell 14 (section header), Cell 15 (comments), Cell 43 (takeaway 3) |
+| `eval_strategy` not `evaluation_strategy` | Cell 16/17 train.py -- not applicable (no TrainingArguments in MLP) |
+| No `evaluate` library | Cell 16/17 train.py (compute_accuracy inline), Cell 15 requirements.txt |
+| `ResourceNotFound` not `ResourceNotFoundException` | Cell 32 (MLflow get_or_create) |
+| `MlflowVersion="2.13.2"` | Cell 30 (Beat 1 broken), Cell 32 (Beat 3 correct) |
+| `numpy<2` | Cell 2 (install), Cell 15 (requirements.txt), Cell 16/17 (train.py) |
 | Plain ASCII only | All cells -- no em dashes, en dashes, Unicode multiplication signs, emojis |
-| No hardcoded secrets | Cell 2 (no API keys needed), Cell 31 (section header IAM note) |
+| No hardcoded secrets | Cell 2 (no API keys needed), Cell 29 (section header IAM note) |
 | `getpass` for external APIs | Not applicable (no external API keys in this notebook) |
 
 ---
@@ -1994,7 +1856,7 @@ Every constraint from SAGEMAKER_LESSONS_LEARNED.md and CORE_TECHNOLOGIES_AND_DEC
 | Lab | Variable(s) | Safety-net cell | Downstream cells |
 |-----|-------------|-----------------|------------------|
 | Lab 1 | `account_id`, `artifact_base`, `recent_jobs`, `role_name` | Cell 9 | Cell 10 (verification) |
-| Lab 2 | `job_name` | Cell 24 | Cells 25, 27, 28, 29, 37, 38, 40, 41 |
+| Lab 2 | `job_name` | Cell 23 | Cells 24, 26, 27, 28, 35, 36, 38, 39 |
 
 Both safety-net cells must be removed from the solution notebook.
 
@@ -2003,7 +1865,7 @@ Both safety-net cells must be removed from the solution notebook.
 ## Diagram Checklist
 
 - [ ] Cell 5: `<!-- DIAGRAM: SageMaker remote training job lifecycle ... -->` with link to `../../plans/F2/diagrams/sagemaker_training_lifecycle.mmd`
-- [ ] Cell 33: `<!-- DIAGRAM: SageMaker Managed MLflow architecture ... -->` with link to `../../plans/F2/diagrams/sagemaker_mlflow_architecture.mmd`
+- [ ] Cell 31: `<!-- DIAGRAM: SageMaker Managed MLflow architecture ... -->` with link to `../../plans/F2/diagrams/sagemaker_mlflow_architecture.mmd`
 - [ ] Both diagram `.mmd` files generated by `/build-diagrams` before final commit
 
 ---
@@ -2012,11 +1874,12 @@ Both safety-net cells must be removed from the solution notebook.
 
 | Type | Count |
 |------|-------|
-| Markdown cells | 18 |
+| Markdown cells | 15 |
 | Code cells | 28 |
-| **Total** | **46** |
+| **Total** | **43** |
 
 No markdown chain of more than 3 consecutive cells exists anywhere in this plan.
 Every lab has both a safety-net cell and a verification cell.
 Every major section uses the four-beat arc (Beat 1 broken -> Beat 2 diagram -> Beat 3 demo -> Beat 4 lab).
 Beat 2 appears once per section as required -- only 2 diagrams total for F2.
+All labs are Tier 1 (guided, numbered steps, fully scaffolded).

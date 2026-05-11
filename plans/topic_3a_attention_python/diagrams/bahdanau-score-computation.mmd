@@ -1,0 +1,15 @@
+graph TD
+    h["Encoder hidden states\nh1...hT  [T x enc_dim]"] --> w1["W1 projection\n[enc_dim -> attn_dim]"]
+    s["Decoder prev state\ns_t-1  [dec_dim]"] --> w2["W2 projection\n[dec_dim -> attn_dim]"]
+    w1 --> tanh["tanh(W1*h + W2*s)\n[T x attn_dim]"]
+    w2 --> tanh
+    tanh --> v["v dot product\n(learned vector [attn_dim])"]
+    v --> energy["Energy scalars\ne_t,1 ... e_t,T  [T]"]
+    energy --> softmax["Softmax\nnormalise over T positions"]
+    softmax --> alpha["Attention weights\nalpha_t,1 ... alpha_t,T  [T]"]
+    alpha --> ctx["Context vector c_t\nweighted sum of h1...hT  [enc_dim]"]
+    h --> ctx
+
+    style alpha fill:#ffd,stroke:#aa3
+    style ctx fill:#dfd,stroke:#3a3
+    style s fill:#ddf,stroke:#33c

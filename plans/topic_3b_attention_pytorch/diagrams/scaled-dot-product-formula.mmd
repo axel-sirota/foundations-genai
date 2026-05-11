@@ -1,0 +1,13 @@
+graph TD
+    Q["Q  Query matrix\n[batch, T_q, d_k]"] --> matmul1["MatMul\nQ x K^T"]
+    K["K  Key matrix\n[batch, T_k, d_k]"] -->|"transpose"| KT["K^T\n[batch, d_k, T_k]"]
+    KT --> matmul1
+    matmul1 --> raw["Raw scores\n[batch, T_q, T_k]"]
+    raw --> scale["Divide by sqrt(d_k)\nstabilises gradients"]
+    scale --> sm["Softmax over key dim\n[batch, T_q, T_k]\nrows sum to 1"]
+    sm --> matmul2["MatMul\nweights x V"]
+    V["V  Value matrix\n[batch, T_k, d_v]"] --> matmul2
+    matmul2 --> out["Context output\n[batch, T_q, d_v]"]
+
+    style scale fill:#fda,stroke:#c63
+    style out fill:#dfd,stroke:#3a3
