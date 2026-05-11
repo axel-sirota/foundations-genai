@@ -1,0 +1,19 @@
+flowchart TB
+    subgraph LoRA["LoRA (about 0.5 to 1 percent trainable)"]
+        L_X[x] --> L_W["W frozen (fp16)"]
+        L_X --> L_A["A trainable"] --> L_B["B trainable"]
+        L_W --> L_P((+))
+        L_B --> L_P --> L_Y[y]
+    end
+
+    subgraph QLoRA["QLoRA (about 0.5 to 1 percent trainable)"]
+        Q_X[x] --> Q_W["W frozen NF4 (4-bit)"] --> Q_D["dequantize to fp16"]
+        Q_X --> Q_A["A trainable fp16"] --> Q_B["B trainable fp16"]
+        Q_D --> Q_P((+))
+        Q_B --> Q_P --> Q_Y[y]
+    end
+
+    subgraph Soft["Soft Prompts / Prefix (about 0.01 to 0.1 percent trainable)"]
+        S_V["P virtual tokens<br/>(trainable embeddings)"] --> S_C[Concat]
+        S_X["Real input tokens"] --> S_C --> S_M["Frozen transformer<br/>(all weights fixed)"] --> S_Y[y]
+    end

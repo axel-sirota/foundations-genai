@@ -1,0 +1,17 @@
+flowchart TD
+    X[Input activations x fp16]
+    W["Base weights stored in NF4 (4-bit)<br/>FROZEN throughout training"]
+    DQ["Dequantize to fp16<br/>(forward pass only)"]
+    A["LoRA A (rank r, fp16)<br/>trainable"]
+    B["LoRA B (rank r, fp16)<br/>trainable"]
+    Plus(("+"))
+    Y[Output fp16]
+    Grad["Gradients flow ONLY through<br/>LoRA A and B.<br/>Base NF4 weights never updated."]
+    Mem["Memory for DistilBERT-base:<br/>Full fine-tune ~268 MB<br/>QLoRA ~22 MB"]
+
+    X --> DQ
+    W --> DQ --> Plus
+    X --> A --> B --> Plus
+    Plus --> Y
+    B -.-> Grad
+    W --- Mem

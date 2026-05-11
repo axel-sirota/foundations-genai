@@ -1,0 +1,18 @@
+flowchart LR
+    X[Input x]
+    subgraph Frozen["Frozen base path (no gradient)"]
+        W["W (d x k)<br/>frozen<br/>512 x 1024 = 524,288 params"]
+    end
+    subgraph LowRank["LoRA path (trainable, r << min(d,k))"]
+        A["A (r x k)<br/>r=8, 8 x 1024 = 8,192"]
+        B["B (d x r)<br/>r=8, 512 x 8 = 4,096"]
+    end
+    Plus(("+"))
+    Y["Output: W x + B A x"]
+
+    X --> W --> Plus
+    X --> A --> B --> Plus
+    Plus --> Y
+
+    Note["LoRA trainable: 12,288 params<br/>Full W: 524,288 params<br/>About 43x fewer trainable params"]
+    LowRank --- Note

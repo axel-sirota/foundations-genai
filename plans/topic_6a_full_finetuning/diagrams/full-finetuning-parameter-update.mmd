@@ -1,0 +1,18 @@
+flowchart LR
+    Input[Input Batch<br/>input_ids, labels]
+    L1[Layer 1<br/>trainable]
+    L2[Layer 2<br/>trainable]
+    LN[Layer N<br/>trainable]
+    Head[Classification Head<br/>trainable]
+    Loss[Loss]
+    Adam[Adam Optimizer<br/>per param: weight + grad<br/>+ m + v = 4 floats]
+
+    Input --> L1 --> L2 --> LN --> Head --> Loss
+    Loss -. grad .-> Head
+    Head -. grad .-> LN
+    LN -. grad .-> L2
+    L2 -. grad .-> L1
+    Adam -.updates.-> L1
+    Adam -.updates.-> L2
+    Adam -.updates.-> LN
+    Adam -.updates.-> Head

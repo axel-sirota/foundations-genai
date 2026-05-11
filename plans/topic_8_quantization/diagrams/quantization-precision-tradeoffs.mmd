@@ -1,0 +1,11 @@
+flowchart TD
+    FP32["FP32<br/>32 bits / 4 bytes per weight<br/>Memory: 1x baseline<br/>Accuracy loss: ~0%<br/>Use: training"]
+    FP16["FP16 / BF16<br/>16 bits / 2 bytes per weight<br/>Memory: 2x smaller<br/>Accuracy loss: ~0.5%<br/>Use: mixed-precision train + serve"]
+    INT8["INT8<br/>8 bits / 1 byte per weight<br/>Memory: 4x smaller<br/>Accuracy loss: 1-2% after QAT<br/>Use: CPU and edge serving"]
+    INT4["INT4<br/>4 bits / 0.5 bytes per weight<br/>Memory: 8x smaller<br/>Accuracy loss: 2-5%<br/>Use: consumer GPU inference"]
+    Note["QAT recovers up to 96% of accuracy<br/>lost by post-training quantization (PTQ).<br/>Source: PyTorch 2025."]
+
+    FP32 -->|halve precision| FP16
+    FP16 -->|halve precision| INT8
+    INT8 -->|halve precision| INT4
+    INT4 --- Note

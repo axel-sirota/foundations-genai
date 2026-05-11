@@ -1,0 +1,30 @@
+flowchart TD
+    Input[Input batch]
+    GT["Ground-truth hard labels<br/>(one-hot)"]
+    Teacher["Teacher model<br/>BERT-base (frozen, large)"]
+    Student["Student model<br/>DistilBERT or T5-small (trainable)"]
+
+    T_logits["Teacher logits"]
+    S_logits["Student logits"]
+    T_soft["Softmax(logits / T)<br/>Soft labels (teacher)"]
+    S_soft["Softmax(logits / T)<br/>Soft labels (student)"]
+    S_hard["Softmax(logits)<br/>Student predictions"]
+
+    CE["Cross-Entropy loss<br/>(hard target)"]
+    KL["KL Divergence loss<br/>(soft target)"]
+    Loss["Total loss =<br/>alpha * CE + (1 - alpha) * KL"]
+
+    Note1["T=1: hard distribution<br/>T=4: smooth, richer signal<br/>alpha=0.5 typical"]
+
+    Input --> Teacher --> T_logits --> T_soft
+    Input --> Student
+    Student --> S_logits --> S_soft
+    Student --> S_hard
+    GT --> CE
+    S_hard --> CE
+    T_soft --> KL
+    S_soft --> KL
+    CE --> Loss
+    KL --> Loss
+    Teacher -. knowledge transfer .-> Student
+    Loss --- Note1
