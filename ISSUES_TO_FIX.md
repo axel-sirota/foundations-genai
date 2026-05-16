@@ -71,24 +71,30 @@ cu126/cu124/cu121 that is <= the driver CUDA; defaults to cu121 if unreadable.
 
 **Scope:** 10 GPU notebooks. Cell source archived at `/tmp/cuda_safetynet_cell.py`.
 
-## 4. Separate pip-install cells from Python code cells
+## 4. Separate pip-install cells from Python code cells  [DONE]
 
 **Problem:** Some notebooks mix `pip install` commands and Python code in the same
 cell. It runs fine for students, but it is confusing.
 
-**Fix:** Always keep `pip install` in its own cell, separate from Python code cells.
+**Fix applied:** Split every genuinely mixed cell into two: a pip cell + a code
+cell. 18 mixed cells split across all topics (Exercises + Solutions).
 
-**Fix (kernel-restart reminder):** When a pip cell modifies anything environment-
-critical (`numpy`, `pytorch`/`torch`, `transformers`, `accelerate`, etc.), add an
-`echo` at the end of that cell reminding the student to restart the kernel:
+Note on `%%bash`: NOT used. Install cells must stay Python cells with `!pip`
+magics — `%%bash` runs in a separate subshell, breaks `!{sys.executable} -m pip`,
+and can install into the wrong interpreter.
 
-```bash
-pip install "transformers>=4.40" "accelerate==0.28.0"
-echo "RESTART KERNEL before continuing (transformers/accelerate changed)."
+**Restart reminder:** every pip cell that installs an env-critical package
+(`numpy` / `torch` / `transformers` / `accelerate`) ends with:
+
+```python
+print("RESTART KERNEL before continuing -- environment packages were installed/upgraded.")
 ```
 
-**Scope:** All notebooks. Split mixed cells; add the restart `echo` to every pip
-cell that touches `numpy` / `torch` / `transformers` / `accelerate`.
+6 pip-only cells (topic 4, 6b, sagemaker_fundamentals) got the reminder without
+needing a split. Topic 2 cell 42 (sentence-transformers appendix) was correctly
+skipped - its only "pip install" text is inside comments/strings.
+
+**Scope:** All notebooks. Done via `/tmp/fix_issue4_split_cells.py`.
 
 ## 5. Attention / transformers topics too math-heavy; 6a sec 2-3 unclear
 
