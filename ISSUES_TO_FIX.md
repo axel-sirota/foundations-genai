@@ -41,44 +41,35 @@ CUDA note: transformers/accelerate are pure Python (no CUDA variant). Only
 
 **Scope:** Install cells in notebooks that use `transformers` / `accelerate`.
 
-## 3. GPU image / PyTorch-CUDA mismatch in Spaces and training
+## 3. GPU image / PyTorch-CUDA mismatch  [DONE]
 
-**Problem:** GPU notebooks (Spaces, training) need a PyTorch build with CUDA support.
-Spaces were run on `ml.t3.medium`, where the only available image was SageMaker
-`4.1.0` — which is NOT GPU/CUDA-compatible. We had to reinstall PyTorch from scratch
-to get a CUDA build.
+**Problem:** A SageMaker kernel may land on a GPU instance or a CPU one depending
+on quota. On a GPU box the image's `torch` is sometimes CPU-only, so
+`torch.cuda.is_available()` is wrongly `False` and the notebook silently runs on
+CPU (or fails). Originally hit on Spaces forced onto `ml.t3.medium`.
 
-**Fix (primary):** When a notebook runs GPU work even once, select the correct
-GPU-capable image up front (SageMaker PyTorch+CUDA image). Search for and pin the
-right image rather than relying on whatever the small instance defaults to.
+**AWS reality check** (profile `datacouch`, account 962804699607, us-west-2):
+- Training-job GPU quota: ONLY `ml.g4dn.xlarge` is non-zero (100). All `g5.*`,
+  `p3.*`, `p4.*` and bigger `g4dn` are 0.0 -> a job requesting them is rejected.
+- Notebook-instance quota: `ml.g4dn.xlarge` = 200, `ml.t3.medium` = 100.
+  So the kernel can be GPU or CPU -> safety-net must handle both.
+- Every `train.py` / notebook already targets `ml.g4dn.xlarge` (T4 16GB) -
+  consistent with the only available quota. No instance-type change needed.
 
-**Fix (safety-net in notebook):** Add a CUDA detection + auto-repair cell. Logic:
+**Fix applied:** Inserted a CUDA health-check cell (markdown header + code) right
+after the first `import torch` cell in all 10 GPU notebooks (Exercises +
+Solutions, topics 6a/6b/7a/7b/8). Logic:
+1. No GPU hardware (`nvidia-smi` absent / non-zero exit) -> no action, CPU run.
+2. GPU present + `torch.version.cuda` set -> print OK.
+3. GPU present + `torch` CPU-only -> reinstall a matching CUDA wheel, tell the
+   student to restart the kernel.
 
-1. If no CUDA device present -> no action (CPU run, nothing to fix).
-2. If CUDA present, check whether the installed `torch` is a CUDA build
-   (`torch.cuda.is_available()` and `torch.version.cuda`).
-3. If CUDA present but `torch` is CPU-only -> reinstall the CUDA wheel as a fallback:
+Wheel selection combines two signals: `nvidia-smi` driver max-CUDA, and the
+SageMaker metadata file `/opt/ml/metadata/resource-metadata.json` (image/instance
+identity, logged for diagnostics). `_pick_wheel` chooses the newest of
+cu126/cu124/cu121 that is <= the driver CUDA; defaults to cu121 if unreadable.
 
-```python
-import torch, subprocess, sys
-
-# only act if a GPU is physically present but torch can't use it
-if torch.version.cuda is None:
-    # CPU-only torch on a CUDA box: reinstall the CUDA 12.6 wheel
-    subprocess.run([
-        sys.executable, "-m", "pip", "install", "--upgrade",
-        "torch", "torchvision", "torchaudio",
-        "--index-url", "https://download.pytorch.org/whl/cu126",
-    ], check=True)
-    print("Reinstalled torch with CUDA 12.6. Restart the kernel.")
-else:
-    print("torch CUDA build OK:", torch.version.cuda)
-```
-
-CUDA 12.6 wheel index: `https://download.pytorch.org/whl/cu126` (verified May 2026).
-
-**Scope:** GPU notebooks (Spaces, training). Primary fix is image selection;
-the safety-net cell is the fallback when the image is wrong.
+**Scope:** 10 GPU notebooks. Cell source archived at `/tmp/cuda_safetynet_cell.py`.
 
 ## 4. Separate pip-install cells from Python code cells
 
