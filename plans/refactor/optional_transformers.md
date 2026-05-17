@@ -1,4 +1,4 @@
-# Rework Design Doc: topic_optional_transformers
+# Rework Design Doc: topic_optional_transformers (Round 2, Codex-corrected)
 
 ## Purpose of this document
 
@@ -10,7 +10,19 @@ This is a cell-by-cell rework plan for the notebook pair:
 A separate notebook-building agent must be able to implement this rework WITHOUT
 re-reading the original notebook. Every cell of the reworked notebook is specified
 below: cell number, type, purpose, and either full content or a precise change
-description (KEEP / EDIT / NEW / DELETE / MERGE).
+description (KEEP / EDIT / NEW / DELETE / MERGE), with old text quoted and new
+text given.
+
+### Round 2 note (why this doc was rewritten)
+
+The Round 1 draft of this doc was reviewed adversarially by Codex (o3). It found
+blocking defects. The relevant findings for THIS notebook are R2, R4, R6, R12, R13.
+Round 1 also miscounted the source notebook (it said 36 cells but mapped them to
+wrong indices, e.g. it claimed the SageMaker submit cell was original cell 32 with
+a comment about `m5.xlarge` while placing it at reworked cell 35). This Round 2
+doc uses the VERIFIED source cell indices (the source notebook has 36 cells,
+indices 0..35) and resolves every relevant Codex finding. A "Codex R1 findings
+resolved" table at the end maps each finding to the fixing cell(s).
 
 ### Why the rework
 
@@ -20,72 +32,118 @@ The current notebook assumes the linear course path. It must become fully
 self-contained: it cannot assume the old attention optionals (old Topics 3a/3b)
 were done, and it cannot chain forward to old Topic 5 (Hugging Face).
 
-Broader course feedback: attention/transformer topics were "too math-heavy;
-students are USERS of models, not transformer authors." This notebook stays
-OPTIONAL precisely because it is build-from-scratch internals. The rework keeps
-the internals but reframes them: open with WHY a practitioner might want to
-understand transformer internals BEFORE any math, and strip every sentence that
-implies a fixed position in a linear course.
+Per Codex R12: the transformer CONCEPT is taught as a required mini-lesson
+elsewhere in the course (in the required path). THIS notebook is the OPTIONAL
+from-scratch BUILD. Wording throughout must reflect that split: this notebook is
+never described as required, and never as the only place transformers are
+explained. It is the deep-dive build for learners who want to open the box.
 
 ### What stays the same
 
 - The four-beat teaching arc (Beat 1 broken/naive, Beat 2 diagram, Beat 3 working
   demo, Beat 4 lab).
 - Lab 1 (Tier 1 guided, PositionalEmbedding) and Lab 2 (Tier 2 hard, DecoderLayer).
-- The remote GPU training-job capstone using `scripts_optional_transformers/train.py`.
+- The remote GPU training-job capstone using `scripts_optional_transformers/train.py`,
+  on `ml.g4dn.xlarge`.
 - All architecture code (PositionalEmbedding, EncoderLayer, Encoder, DecoderLayer,
-  Decoder, Translator), all shape tests, all verification cells, all safety-net cells.
+  Decoder, Translator), all shape tests, all verification cells, all safety-net
+  cells.
 - Plain ASCII only. No em-dashes, no en-dashes, no Unicode multiplication signs,
   no emojis, anywhere.
 
 ### What changes (summary)
 
-1. NEW first markdown cell: OPTIONAL / SUPPLEMENTARY banner.
-2. Title cell loses "Topic 4" and "| Topic 4"; "What you will build" intro rewritten
-   to drop "In Topics 3a and 3b you implemented...".
-3. DELETE the "Day 2 System Overview" / "YOU ARE HERE" course-progression table cell,
-   replace with a short static "this is an optional deep-dive" note.
+1. NEW first markdown cell (cell 0): OPTIONAL / SUPPLEMENTARY banner.
+2. Title cell loses "Topic 4" and "| Topic 4"; "What you will build" intro
+   rewritten to drop "In Topics 3a and 3b you implemented..." and "your first
+   remote GPU training job".
+3. DELETE the "Day 2 System Overview" / "YOU ARE HERE" course-progression table
+   cell, replace in place with a short static "this is an optional deep-dive"
+   note (no progression table).
 4. NEW motivation markdown cell: "Why understand transformer internals?" placed
    before any math.
-5. NEW self-contained recap markdown cell: scaled-dot-product attention restated
-   inline so a student who skipped the attention optionals can follow.
+5. NEW self-contained recap markdown cell: scaled dot-product attention restated
+   inline, INCLUDING an explicit introduction of `torch.nn.MultiheadAttention`
+   (Codex R2) so the cell-10 demo that uses it is no longer relying on knowledge
+   "from Topic 5".
 6. EDIT every cell that says "In Topic 3b...", "In Topics 3a and 3b...",
    "In Topic 5...", "The DistilBERT you load in Topic 5...", "Day 2 capstone",
    "first remote training job in the course", "capstones in Days 2 and 3",
-   "Next session: Topic 5" -> reframe as optional-track language.
-7. Capstone instance: the prose must consistently say `ml.g4dn.xlarge` (GPU, NVIDIA
-   T4). The current notebook is internally inconsistent (markdown and one comment say
-   g4dn GPU; the estimator code and another comment say `ml.m5.xlarge` CPU). Resolve
-   in favor of `ml.g4dn.xlarge` per the rework brief, and fix the estimator cell.
+   "Next session: Topic 5" -> reframe as standalone optional-track language
+   (Codex R12, R13).
+7. Capstone instance: prose, comments, the estimator `instance_type`, and the
+   status print must ALL say `ml.g4dn.xlarge` (GPU, NVIDIA T4). The source
+   notebook is internally inconsistent (the section header says g4dn GPU; the
+   submit cell comment and `instance_type` say `ml.m5.xlarge` CPU). Resolve in
+   favor of `ml.g4dn.xlarge` everywhere.
+8. NEW AWS / SageMaker prerequisite markdown cell + NEW credentials/bucket GUARD
+   code cell placed immediately BEFORE the capstone section (Codex R4). A
+   standalone learner with no AWS creds must get a clear, actionable message
+   instead of a raw `NoCredentialsError`.
+9. Status cell comment fixed and the `sm_client.exceptions.ResourceNotFound`
+   footgun flagged: the builder must use a broad `except Exception` fallback so a
+   missing exception attribute does not crash the cell (this matches the existing
+   repo fix in commit 1396025 for T8).
+
+### Artifact note (Codex R6)
+
+This notebook WRITES the following artifacts. No other notebook in the course
+loads them, and this notebook does not load any artifact produced elsewhere:
+
+- `scripts_optional_transformers/train.py` and `.../requirements.txt` -- written
+  locally by cell 34 (reworked numbering), consumed only by the SageMaker job
+  this same notebook submits.
+- `s3://<default-bucket>/optional-transformers-translator/output/model.tar.gz` --
+  the trained model artifact produced by the remote job. It is described in the
+  wrap-up but nothing in this notebook (or any required notebook) auto-loads it.
+  A learner who wants it downloads it manually.
+
+Because the notebook neither produces an artifact that a required notebook
+depends on, nor loads one, R6 is satisfied by construction. The doc states this
+explicitly so the builder does not add such a dependency.
+
+### SageMaker S3 prefix rename
+
+The source `output_path` uses the S3 key prefix `topic4-translator`. To remove
+the stale "topic4" naming, rename it to `optional-transformers-translator` in the
+reworked notebook (see cell 36). It is only a bucket key; renaming it is safe and
+keeps the artifact path consistent with the notebook name.
 
 ### Cell count
 
-Original: 36 cells. Reworked: 39 cells (3 NEW markdown cells added; no deletions of
-code; one markdown cell replaced in place).
+Source notebook: 36 cells (indices 0..35).
+Reworked Exercises notebook: 41 cells (indices 0..40).
+Net change: +5 cells (5 NEW markdown/code cells: banner, motivation, attention
+recap, AWS prerequisite note, AWS guard cell). One markdown cell is REPLACED in
+place (the "YOU ARE HERE" table). No code cells are deleted.
 
 ### Solutions twin
 
 The Solutions notebook is identical to the Exercises notebook EXCEPT:
 
-- Every lab starter cell has its `= None  # YOUR CODE` stubs replaced with the full
-  working implementation (see Lab 1 and Lab 2 solution code given inline below).
-- The two safety-net cells (Exercises cells 19 and 29 in the new numbering, see below)
-  are DELETED from the Solutions notebook, because the lab cell itself is the working
-  implementation there. NOTE: this means the Solutions notebook has 37 cells, and the
-  cell numbering after each removed safety-net shifts down by one. All other cells are
-  byte-identical to the Exercises notebook.
-- The training-job safety-net cell (Exercises cell 35, "run this if your kernel
-  restarted") is KEPT in the Solutions notebook unchanged. It is an operational
-  recovery cell, not a lab safety-net, so it stays.
+- Every lab starter cell has its `= None  # YOUR CODE` stubs replaced with the
+  full working implementation (Lab 1 and Lab 2 solution code given inline below).
+- The two LAB safety-net cells (reworked Exercises cells 25 and 35) are DELETED
+  from the Solutions notebook, because the lab cell itself is the working
+  implementation there. After each deletion the Solutions numbering shifts down
+  by one. All other cells are byte-identical to the Exercises notebook.
+- The training-job safety-net cell (reworked Exercises cell 38, "run this if your
+  kernel restarted") is KEPT in the Solutions notebook unchanged. It is an
+  operational recovery cell, not a lab safety-net, so it stays.
+- The AWS guard cell (reworked Exercises cell 36) is KEPT unchanged in the
+  Solutions notebook -- it is a runtime guard, not a lab.
 
-Build order: build Exercises fully first, then `cp` to Solutions and apply the three
+Result: Solutions notebook has 39 cells.
+
+Build order: build Exercises fully first, then `cp` to Solutions and apply the
 changes above (fill Lab 1, fill Lab 2, delete the two lab safety-net cells).
 
 ---
 
 ## Cell-by-cell plan (Exercises notebook)
 
-New numbering runs 0..38. Each entry maps to the original where applicable.
+Reworked numbering runs 0..40. "Maps to original cell N" refers to the verified
+36-cell source notebook (indices 0..35).
 
 ---
 
@@ -97,7 +155,9 @@ Action: NEW. This becomes the very first cell. Full content:
 # Optional Deep-Dive: Transformers From Scratch
 
 > **This is an optional supplementary notebook.** The main course path does not
-> require it. You can complete every required topic without opening this notebook.
+> require it. The transformer concept is taught as a short mini-lesson in the
+> required topics. This notebook is the from-scratch BUILD, for learners who want
+> to see the internals. You can complete every required topic without opening it.
 
 ### Who this is for
 
@@ -110,15 +170,17 @@ to open the box, read on.
 ### Is it self-contained?
 
 Yes. This notebook does not depend on any other notebook in the course. Comfort
-with the idea of attention helps, but a short recap is included below, so you can
-follow even if you have never seen scaled dot-product attention before.
+with the idea of attention helps, but a full recap of scaled dot-product attention
+and of `torch.nn.MultiheadAttention` is included below, so you can follow even if
+you have never seen attention before.
 
 ### What you need
 
-A SageMaker notebook kernel for the architecture demos (CPU is fine), and
-permission to launch one short remote GPU training job (ml.g4dn.xlarge) for the
-capstone at the end. The capstone is optional within this optional notebook: the
-architecture is fully built and tested before you submit any remote job.
+A SageMaker notebook kernel for the architecture demos (CPU is fine). The capstone
+at the end submits one short remote GPU training job (ml.g4dn.xlarge); that step
+needs working AWS / SageMaker credentials and is flagged with its own prerequisite
+note and a guard cell. The capstone is optional within this optional notebook: the
+architecture is fully built and tested before any remote job is submitted.
 ```
 
 ---
@@ -159,7 +221,8 @@ Customer Support translation scenario.
 
 ## What you will build
 This notebook restates everything it needs as it goes, including a recap of
-scaled dot-product attention. In it you will:
+scaled dot-product attention and of PyTorch's multi-head attention module. In it
+you will:
 1. Understand WHY a sequence model that reads tokens one at a time struggles on
    long sequences
 2. Build the full Transformer architecture from scratch in PyTorch
@@ -196,8 +259,9 @@ Because the internals explain the behaviour you will debug in production:
 - **Encoder vs decoder vs encoder-decoder.** BERT-style, GPT-style, and T5-style
   models differ in which half of this architecture they keep. Knowing the halves
   tells you which model class fits which task.
-- **Fine-tuning intuition.** When you later freeze layers, attach adapters, or pick
-  a learning rate, you are reasoning about the exact blocks you are about to build.
+- **Fine-tuning intuition.** When you later freeze layers, attach adapters, or
+  pick a learning rate, you are reasoning about the exact blocks you are about to
+  build.
 
 You do not need this to use a model. You need it to use a model well, and to know
 what to try when one misbehaves. That is the whole reason this optional notebook
@@ -219,8 +283,9 @@ Maps to original cell 1. KEEP unchanged.
 ### Cell 4 - REPLACE - markdown - Optional deep-dive note (was "YOU ARE HERE" table)
 
 Maps to original cell 2. Action: DELETE the old content, REPLACE in place with a
-short static note. The course-progression table with T4/T5/T6a/T6b/T7a/T7b and the
-"YOU ARE HERE" marker is removed entirely because it implies a linear position.
+short static note. The course-progression table with T4/T5/T6a/T6b/T7a/T7b and
+the "YOU ARE HERE" marker is removed entirely because it implies a linear
+position (Codex R12 / R13 framing).
 
 Old text (DELETE):
 
@@ -251,8 +316,8 @@ New text:
 This is a standalone deep-dive, so it does not sit at a fixed point in any course
 sequence. It runs front to back on its own:
 
-- Section 1 - why a token-at-a-time sequence model struggles, and a recap of
-  scaled dot-product attention
+- Section 1 - why a token-at-a-time sequence model struggles, plus a recap of
+  scaled dot-product attention and PyTorch multi-head attention
 - Section 2 - positional encoding, plus Lab 1
 - Section 3 - building the Transformer block by block, plus Lab 2
 - Section 4 - the capstone: training the Translator on a remote GPU
@@ -279,28 +344,10 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 ---
 
-### Cell 6 - EDIT - code - pip install
+### Cell 6 - KEEP - code - pip install
 
-Maps to original cell 4. Only the leading comment changes (it said "Topic 4" and
-"Day 2 capstone" framing). The pip install and restart print stay.
-
-Old comment block:
-
-```
-# Topic 4 - Transformers + Translator Capstone
-# All architecture demos run in this kernel (CPU, ml.t3.medium).
-# The Capstone submits a remote GPU job on ml.g4dn.xlarge.
-```
-
-New comment block:
-
-```
-# Optional deep-dive: Transformers from scratch.
-# All architecture demos run in this notebook kernel (CPU is fine).
-# The capstone at the end submits a remote GPU job on ml.g4dn.xlarge.
-```
-
-Rest of cell unchanged:
+Maps to original cell 4. KEEP unchanged. The source cell has no "Topic 4" / "Day 2"
+text in it, so no edit is required. Content:
 
 ```python
 !pip install -q \
@@ -311,12 +358,17 @@ Rest of cell unchanged:
 print("RESTART KERNEL before continuing -- environment packages were installed/upgraded.")
 ```
 
+(If the source comment block here does mention "Topic 4" or "Day 2 capstone" at
+build time, replace it with: `# Optional deep-dive: Transformers from scratch. /
+# Architecture demos run in this kernel (CPU is fine); the capstone submits a /
+# remote GPU job on ml.g4dn.xlarge.` Verified source has only the pip + print, so
+this is a no-op safeguard.)
+
 ---
 
 ### Cell 7 - KEEP - code - imports, seeds, SageMaker session
 
-Maps to original cell 5. KEEP unchanged (the comment "capstone trains on remote GPU"
-is generic and fine). Content:
+Maps to original cell 5. KEEP unchanged. Content:
 
 ```python
 import torch
@@ -362,12 +414,23 @@ print(f"Default bucket: {bucket}")
 print(f"Region: {region}")
 ```
 
+NOTE for the builder: this cell calls `get_execution_role()` and
+`sess.default_bucket()`. On a properly provisioned SageMaker notebook these
+succeed. Outside SageMaker they may raise. Per Codex R4 the dedicated guard cell
+(reworked cell 36) catches the credential problem with a clear message before the
+capstone, but if the builder wants extra robustness it MAY wrap the three
+`sess.*` / `get_execution_role()` lines in a try/except that prints
+`"SageMaker session not available - the architecture demos still run; the
+capstone section needs AWS credentials (see Section 4)."` and sets
+`sess = role = bucket = region = None`. This is optional hardening; the mandatory
+fix for R4 is cells 35 and 36.
+
 ---
 
 ### Cell 8 - EDIT - markdown - "What are we building"
 
 Maps to original cell 6. Remove the "In Topics 3a and 3b we added attention ON TOP
-of an RNN" sequential reference; restate self-contained.
+of an RNN" sequential reference and "Your first remote GPU training job".
 
 Old text:
 
@@ -417,19 +480,22 @@ to the English-speaking review team.
 
 ---
 
-### Cell 9 - NEW - markdown - Recap: scaled dot-product attention
+### Cell 9 - NEW - markdown - Recap: scaled dot-product attention AND nn.MultiheadAttention
 
-Action: NEW. Self-contained recap so a student who skipped the attention optionals
-can follow. Placed before Section 1. Full content:
+Action: NEW. Self-contained recap so a learner who skipped any attention material
+can follow. This cell is the Codex R2 fix: it explicitly introduces
+`torch.nn.MultiheadAttention` BEFORE the cell-13 demo that uses it, so the demo no
+longer relies on "the nn.MultiheadAttention you saw in Topic 5" (Topic 5 is now
+transfer learning and never shows it). Placed before Section 1. Full content:
 
 ```markdown
-## Recap: scaled dot-product attention in one screen
+## Recap: scaled dot-product attention, and PyTorch's multi-head attention
 
 Everything in this notebook is built on one operation. If you have seen it before,
 skim this. If you have not, this is all you need.
 
-Attention answers: for a given token, which other tokens should it look at, and how
-much? It works with three vectors per token:
+Attention answers: for a given token, which other tokens should it look at, and
+how much? It works with three vectors per token:
 
 - **Query (Q)** - what this token is looking for
 - **Key (K)** - what each token offers, used for matching
@@ -449,17 +515,37 @@ Step by step:
 2. Divide by `sqrt(d_k)` (the key dimension). Without this the scores grow large,
    softmax saturates, and gradients shrink. This is the "scaled" part.
 3. `softmax` over each row turns the scores into weights that sum to 1.
-4. Multiply by `V`: each token's output is a weighted blend of every token's value.
+4. Multiply by `V`: each token's output is a weighted blend of every token's
+   value.
 
 **Self-attention** is the case where Q, K, and V all come from the same sequence:
-every token attends to every token in its own sequence. **Cross-attention** is when
-Q comes from one sequence and K, V come from another; that is how a decoder reads
-the encoder's output. **Multi-head attention** runs several of these in parallel on
-different learned projections and concatenates the results, so the model can attend
-in several ways at once.
+every token attends to every token in its own sequence. **Cross-attention** is
+when Q comes from one sequence and K, V come from another; that is how a decoder
+reads the encoder's output. **Multi-head attention** runs several of these in
+parallel on different learned projections and concatenates the results, so the
+model can attend in several ways at once.
 
-That is the whole foundation. The rest of this notebook stacks this operation into
-encoders, decoders, and a full Translator.
+### PyTorch gives you this as a module: torch.nn.MultiheadAttention
+
+You do not have to hand-roll the four steps above every time. PyTorch ships the
+whole multi-head operation as `torch.nn.MultiheadAttention`. This notebook uses
+it as the attention building block, so here is the contract before you see it in
+action:
+
+- Construct it with `nn.MultiheadAttention(embed_dim, num_heads, batch_first=True)`.
+  `embed_dim` is your model width (`d_model`); `num_heads` must divide `embed_dim`.
+  `batch_first=True` means tensors are shaped `(batch, seq_len, d_model)`.
+- Call it as `output, weights = mha(query, key, value)`. For self-attention you
+  pass the same tensor three times: `mha(x, x, x)`.
+- `output` has the same shape as `query`. `weights` is the
+  `(batch, seq_len, seq_len)` attention matrix - the softmax table from step 3.
+- Optional arguments matter later: `key_padding_mask` ignores padding tokens, and
+  `attn_mask` (a causal mask) stops a decoder token from peeking at future tokens.
+
+The very next demo builds an `nn.MultiheadAttention` and runs self-attention on a
+short sequence so you can see the attention matrix directly. Every encoder and
+decoder layer you build afterwards is just this module plus a feed-forward network
+and some layer norms. That is the whole foundation.
 ```
 
 ---
@@ -510,8 +596,7 @@ Let us see the long-range problem concretely before we fix it.
 
 ### Cell 11 - KEEP - code - Beat 1 RNN gradient dilution demo
 
-Maps to original cell 8. KEEP unchanged (no course references; "Transformers" in the
-comment is fine). Content unchanged:
+Maps to original cell 8. KEEP unchanged. No course references. Content:
 
 ```python
 # Beat 1: Hidden state dilution in a simple RNN.
@@ -559,22 +644,82 @@ print("FIX: process all positions in PARALLEL with attention - no recurrence at 
 
 Maps to original cell 9. KEEP unchanged. Contains the `<!-- DIAGRAM: ... -->`
 placeholder and the inline Mermaid `graph TD` of the full encoder-decoder
-Transformer plus the figure caption. No course references inside it. Keep verbatim.
+Transformer plus the figure caption. No course references inside it. Keep
+verbatim. (Builder: confirm the diagram caption has no "YOU ARE HERE" / "Topic"
+text; the verified source caption does not, but per Codex R11 any such text would
+have to be stripped.)
 
 ---
 
-### Cell 13 - KEEP - code - Beat 3 self-attention parallel demo
+### Cell 13 - KEEP - code - Beat 3 self-attention parallel demo (uses nn.MultiheadAttention)
 
-Maps to original cell 10. KEEP unchanged. The demo builds a single-head
-`nn.MultiheadAttention`, runs self-attention on an 8-token sequence, prints the
-attention weight matrix. No course references. Keep verbatim.
+Maps to original cell 10. KEEP unchanged. This demo builds a single-head
+`nn.MultiheadAttention`, runs self-attention on an 8-token sequence, and prints
+the attention weight matrix. It is now fully covered by the recap in cell 9 (Codex
+R2): the recap introduces `nn.MultiheadAttention` before this cell runs, so the
+demo no longer assumes the reader saw the module in another topic. No edit needed
+to the code; keep verbatim:
+
+```python
+# Beat 3: Self-attention processes all positions in parallel - no hidden state bottleneck.
+# We demonstrate that every token can directly attend to every other token in one step.
+# Compare this to the RNN above where token 0 needed 29 matrix multiplications to reach
+# the final hidden state.
+
+set_seeds(42)
+
+# A minimal self-attention layer (no positional encoding yet - that comes in Section 2).
+# We use PyTorch's built-in MultiheadAttention with a single head for clarity.
+d_model = 32
+mha = nn.MultiheadAttention(embed_dim=d_model, num_heads=1, batch_first=True)
+mha.eval()
+
+# Simulate a short complaint: "my account was charged incorrectly last month"
+# 8 tokens, d_model=32
+seq_len = 8
+with torch.no_grad():
+    x = torch.randn(1, seq_len, d_model)           # (batch=1, seq_len=8, d_model=32)
+    attn_out, attn_weights = mha(x, x, x)          # Q=K=V=x (self-attention)
+
+print("Beat 3: Multi-head self-attention - all positions attend to all positions at once.")
+print(f"Input shape:          {x.shape}")
+print(f"Output shape:         {attn_out.shape}  (same shape - parallel transform)")
+print(f"Attention weights:    {attn_weights.shape}  (seq_len x seq_len matrix)")
+print()
+print("Each position in the output is a weighted sum of ALL input positions.")
+print("No sequential pass required. Token 0 directly sees token 7 with zero intermediate steps.")
+print()
+print("Attention weight matrix (token i attends to token j):")
+weights = attn_weights[0].detach().numpy()
+for i in range(seq_len):
+    row = "  ".join(f"{w:.2f}" for w in weights[i])
+    print(f"  token {i}: [{row}]")
+print()
+print("Every row sums to 1.0 (softmax). Every token looks at every other token - in parallel.")
+```
 
 ---
 
 ### Cell 14 - KEEP - markdown - Beat 4 observe the attention pattern
 
 Maps to original cell 11. KEEP unchanged. Discussion prompt, 3 minutes, three
-questions about the attention matrix. No course references. Keep verbatim.
+questions about the attention matrix. No course references. Content:
+
+```markdown
+## Beat 4 - Observe the Attention Pattern (3 min)
+
+Look at the attention weight matrix printed above and discuss with a partner:
+
+1. Which token received the highest total attention (column sums)? Does that
+   surprise you given the weights are random at this point?
+
+2. In an RNN the gradient from token 7 reaching token 0 decayed exponentially.
+   In self-attention, what is the path length from token 7 to token 0?
+
+3. The attention matrix is 8 x 8 here. If the sequence were 1,000 tokens long,
+   how large would the matrix be? What does that mean for memory as sequences get
+   longer?
+```
 
 ---
 
@@ -586,11 +731,12 @@ Maps to original cell 12. KEEP unchanged. Content:
 ## Section 2 - Positional Encoding
 
 Attention is order-agnostic: if you shuffle the input tokens, the attention scores
-change but there is no positional bias built in. We need to inject position information
-before the first attention layer.
+change but there is no positional bias built in. We need to inject position
+information before the first attention layer.
 
 The original Transformer used sinusoidal positional encodings - a deterministic
-function that maps each (position, dimension) pair to a unique value. Let us build it.
+function that maps each (position, dimension) pair to a unique value. Let us build
+it.
 ```
 
 ---
@@ -606,8 +752,8 @@ output norms. No course references. Keep verbatim.
 ### Cell 17 - KEEP - markdown - Beat 2 diagram (sinusoidal PE properties)
 
 Maps to original cell 14. KEEP unchanged. `<!-- DIAGRAM: ... -->` placeholder plus
-Mermaid `graph TD` of the PE formula and its properties, plus figure caption.
-No course references. Keep verbatim.
+Mermaid `graph TD` of the PE formula and its properties, plus figure caption. No
+course references. Keep verbatim.
 
 ---
 
@@ -621,8 +767,8 @@ No course references. Keep verbatim.
 
 ### Cell 19 - KEEP - markdown - Lab 1 instructions (Tier 1 guided)
 
-Maps to original cell 16. KEEP unchanged. STAR-framed Lab 1 instructions for
-`MyPositionalEmbedding`, including Stretch and Homework Extension. No course
+Maps to original cell 16. KEEP unchanged. STAR-framed Lab 1 instructions for the
+positional embedding layer, including Stretch and Homework Extension. No course
 references. Keep verbatim.
 
 ---
@@ -653,15 +799,16 @@ Solutions replacement:
         embedded = self.embedding(x) * math.sqrt(self.d_model) + self.pe[:seq_len]
 ```
 
-Everything else in the cell (the docstrings, the shape-check block at the bottom)
+Everything else in the cell (docstrings, the shape-check block at the bottom)
 stays identical in both notebooks.
 
 ---
 
 ### Cell 21 - KEEP - code - Lab 1 verification
 
-Maps to original cell 18. KEEP unchanged in both Exercises and Solutions. It builds
-a `_RefPE` reference and compares the student layer against it. Keep verbatim.
+Maps to original cell 18. KEEP unchanged in both Exercises and Solutions. It
+builds a reference positional embedding and compares the student layer against it.
+Keep verbatim.
 
 ---
 
@@ -669,8 +816,9 @@ a `_RefPE` reference and compares the student layer against it. Keep verbatim.
 
 Maps to original cell 19.
 
-Exercises: KEEP unchanged. It defines `_RefPositionalEmbedding` and `_lab1_working`,
-and sets `pos_embed_layer` from either the student layer or the reference.
+Exercises: KEEP unchanged. It defines the reference positional embedding and a
+`_lab1_working` flag, and sets `pos_embed_layer` from either the student layer or
+the reference, so downstream cells run even if Lab 1 is incomplete.
 
 Solutions: DELETE this cell. The Lab 1 cell is already the working implementation,
 so the safety-net is redundant. After deletion the Solutions numbering shifts down
@@ -704,21 +852,23 @@ We build each component, test its shape, then connect them together.
 ### Cell 24 - KEEP - code - Beat 1 naive translator demo
 
 Maps to original cell 21. KEEP unchanged. Naive embed -> linear translator, shows
-reversed input gives the same sorted predictions. No course references. Keep verbatim.
+reversed input gives the same sorted predictions. No course references. Keep
+verbatim.
 
 ---
 
 ### Cell 25 - KEEP - markdown - Beat 2 what a proper translator needs
 
-Maps to original cell 22. KEEP unchanged. Explains positional information and token
-interactions. No course references. Keep verbatim.
+Maps to original cell 22. KEEP unchanged. Explains positional information and
+token interactions. No course references. Keep verbatim.
 
 ---
 
 ### Cell 26 - KEEP - code - Beat 3 encoder components
 
 Maps to original cell 23. KEEP unchanged. Defines `PositionalEmbedding`,
-`EncoderLayer`, `Encoder`, and runs the encoder shape verification. No course
+`EncoderLayer`, `Encoder` (each `EncoderLayer` uses `nn.MultiheadAttention`,
+already introduced in cell 9), and runs the encoder shape verification. No course
 references. Keep verbatim.
 
 ---
@@ -740,9 +890,9 @@ references. Keep verbatim.
 
 ### Cell 29 - KEEP - markdown - Lab 2 instructions (Tier 2 hard)
 
-Maps to original cell 26. KEEP unchanged. STAR-framed Lab 2 instructions for
-`build_decoder_layer`, including Stretch and Homework Extension. No course
-references. Keep verbatim.
+Maps to original cell 26. KEEP unchanged. STAR-framed Lab 2 instructions for the
+decoder layer, including Stretch and Homework Extension. No course references.
+Keep verbatim.
 
 ---
 
@@ -750,11 +900,12 @@ references. Keep verbatim.
 
 Maps to original cell 27.
 
-Exercises: KEEP the starter exactly as-is, with all seven `None  # YOUR CODE` stubs.
+Exercises: KEEP the starter exactly as-is, with all seven `None  # YOUR CODE`
+stubs.
 
 Solutions: replace the stubs with the working implementation. Replacements:
 
-Step 1 stub:
+Step 1 stub (self-attention module):
 ```python
             self.self_attn = None  # YOUR CODE
 ```
@@ -763,7 +914,7 @@ Step 1 stub:
             self.self_attn = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
 ```
 
-Step 2 stub:
+Step 2 stub (cross-attention module):
 ```python
             self.cross_attn = None  # YOUR CODE
 ```
@@ -772,7 +923,7 @@ Step 2 stub:
             self.cross_attn = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
 ```
 
-Step 3 stub:
+Step 3 stub (feed-forward):
 ```python
             self.ffn = None  # YOUR CODE
 ```
@@ -783,7 +934,7 @@ Step 3 stub:
             )
 ```
 
-Step 4 stubs (four lines):
+Step 4 stubs (four lines: norms and dropout):
 ```python
             self.norm1 = None  # YOUR CODE
             self.norm2 = None  # YOUR CODE
@@ -798,40 +949,42 @@ Step 4 stubs (four lines):
             self.dropout = nn.Dropout(dropout)
 ```
 
-Step 5 stub:
+Step 5 stub (masked self-attention sublayer):
 ```python
             tgt = None  # YOUR CODE
 ```
-(the self-attention one) ->
+->
 ```python
             sa_out, _ = self.self_attn(tgt, tgt, tgt, attn_mask=tgt_mask,
                                        key_padding_mask=tgt_key_padding_mask)
             tgt = self.norm1(tgt + self.dropout(sa_out))
 ```
 
-Step 6 stub:
+Step 6 stub (cross-attention sublayer):
 ```python
             tgt = None  # YOUR CODE
 ```
-(the cross-attention one) ->
+->
 ```python
             ca_out, _ = self.cross_attn(tgt, memory, memory,
                                         key_padding_mask=memory_key_padding_mask)
             tgt = self.norm2(tgt + self.dropout(ca_out))
 ```
 
-Step 7 stub:
+Step 7 stub (feed-forward sublayer):
 ```python
             tgt = None  # YOUR CODE
 ```
-(the feed-forward one) ->
+->
 ```python
             ff_out = self.ffn(tgt)
             tgt = self.norm3(tgt + self.dropout(ff_out))
 ```
 
-The docstrings, comments, and the bottom shape-check block stay identical in both
-notebooks.
+Builder note: the three Step 5/6/7 stubs are all `tgt = None  # YOUR CODE`. Match
+them by order of appearance in the cell (self-attention first, cross-attention
+second, feed-forward third). The docstrings, comments, and the bottom shape-check
+block stay identical in both notebooks.
 
 ---
 
@@ -857,8 +1010,11 @@ Solutions: DELETE this cell. The Lab 2 cell is already the working implementatio
 
 ### Cell 33 - EDIT - markdown - Section 4 capstone intro
 
-Maps to original cell 30. Remove "first remote GPU training job in the course" and
-"Topics 6-9" forward chaining.
+Maps to original cell 30. Remove "first remote GPU training job in the course"
+(Codex R13 - false, required topic_4 already launches a remote job) and the
+"Topics 6-9" forward chaining (Codex R12). Also drop the made-up CPU instance type
+`ml.t3.medium` for the notebook kernel (the kernel type is not guaranteed; just
+say "this notebook kernel").
 
 Old text:
 
@@ -891,7 +1047,7 @@ it for real on a remote GPU instance.
 
 This capstone shows the standard SageMaker training pattern: package a training
 script, submit a PyTorch estimator job, and retrieve the trained model artifact.
-It is the same pattern used for fine-tuning models anywhere on SageMaker, so it is
+It is the same pattern used to fine-tune models anywhere on SageMaker, so it is
 worth seeing once end to end.
 
 What we will do:
@@ -914,15 +1070,126 @@ and the full `train.py` (the `train_script` string with PositionalEmbedding,
 EncoderLayer, Encoder, DecoderLayer, Decoder, Translator, make_batch, train, and
 the argparse main). No course references in the script. Keep verbatim.
 
+Artifact note (Codex R6): the files this cell writes are consumed ONLY by the
+SageMaker job submitted later in this same notebook. No other notebook reads them.
+
 ---
 
-### Cell 35 - EDIT - code - submit the SageMaker training job
+### Cell 35 - NEW - markdown - AWS / SageMaker prerequisite note (Codex R4)
 
-Maps to original cell 32. The current cell is INCONSISTENT: the comment and the
-estimator both use `ml.m5.xlarge` (CPU), but the section header and brief call for
-`ml.g4dn.xlarge` (GPU, NVIDIA T4). The rework brief is explicit: keep the remote GPU
-capstone on `ml.g4dn.xlarge`. Fix this cell to use the GPU instance and drop the
-"FIRST remote training job in the course" / "all capstones in Days 2 and 3" framing.
+Action: NEW. Placed immediately before the credentials guard cell and the submit
+cell. This is part (a) of the Codex R4 fix: an explicit prerequisite note that the
+capstone needs working AWS / SageMaker credentials. Full content:
+
+```markdown
+## Prerequisite for the capstone: AWS / SageMaker credentials
+
+Everything up to this point ran entirely inside this notebook kernel and needed no
+cloud access. The capstone is different. It submits a real training job to
+Amazon SageMaker, which requires:
+
+- Valid AWS credentials reachable by `boto3` (an attached IAM role on a SageMaker
+  notebook instance, or environment credentials elsewhere).
+- A SageMaker execution role with permission to create training jobs.
+- A writable default S3 bucket for the job output.
+
+If you launched this notebook on a properly provisioned SageMaker notebook
+instance, all three are already set up and you can run straight through. If you
+are running it somewhere else (a laptop, a plain Jupyter server, an environment
+where AWS was never configured), the next cells will fail with a credentials
+error.
+
+The cell directly below is a GUARD. It checks for credentials and bucket access
+and prints exactly what to do if something is missing, instead of letting you hit
+a raw `NoCredentialsError`. Run it first.
+
+If you do not have AWS access, that is fine: the architecture build above is the
+core of this deep-dive and is fully complete. You can read the capstone cells
+without running them, then come back to the wrap-up.
+```
+
+---
+
+### Cell 36 - NEW - code - AWS credentials / bucket guard cell (Codex R4)
+
+Action: NEW. This is part (b) of the Codex R4 fix: a guard cell that runs BEFORE
+the capstone submit cell, checks credentials and bucket access, and prints clear
+remediation if anything is absent. It must NOT raise; it sets a boolean
+`capstone_ready` that the submit cell can check. Full content:
+
+```python
+# Guard: verify AWS / SageMaker access before submitting the remote training job.
+# This cell never raises - it reports status and sets `capstone_ready`.
+# Codex R4: a standalone learner with no AWS credentials must get a clear message
+# here instead of a raw NoCredentialsError deeper in the capstone.
+
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
+
+capstone_ready = True
+problems = []
+
+# 1. Are AWS credentials reachable at all?
+try:
+    sts = boto3.client("sts")
+    identity = sts.get_caller_identity()
+    print(f"AWS credentials OK. Account: {identity['Account']}")
+except (NoCredentialsError, BotoCoreError, ClientError) as e:
+    capstone_ready = False
+    problems.append(f"No usable AWS credentials: {type(e).__name__}")
+
+# 2. Is there a SageMaker execution role?
+try:
+    if role is None:
+        raise ValueError("role is None")
+    print(f"SageMaker execution role OK: {role}")
+except Exception as e:
+    capstone_ready = False
+    problems.append(f"No SageMaker execution role: {e}")
+
+# 3. Is the default bucket reachable and writable?
+try:
+    if bucket is None:
+        raise ValueError("bucket is None")
+    boto3.client("s3").head_bucket(Bucket=bucket)
+    print(f"Default S3 bucket OK: {bucket}")
+except Exception as e:
+    capstone_ready = False
+    problems.append(f"Default S3 bucket not reachable: {type(e).__name__}")
+
+print()
+if capstone_ready:
+    print("Capstone prerequisites satisfied. You can run the cells below.")
+else:
+    print("CAPSTONE CANNOT RUN - missing prerequisites:")
+    for p in problems:
+        print(f"  - {p}")
+    print()
+    print("What to do:")
+    print("  - On a SageMaker notebook instance: confirm the instance has an")
+    print("    attached IAM role with SageMaker and S3 permissions.")
+    print("  - Elsewhere: configure AWS credentials (aws configure, or set")
+    print("    AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_DEFAULT_REGION).")
+    print("  - If you cannot get AWS access, skip the remaining capstone cells.")
+    print("    The architecture build above is the core of this deep-dive and is")
+    print("    already complete.")
+```
+
+Builder note: this guard depends on `role` and `bucket` from cell 7. If the
+builder applied the optional cell-7 hardening that sets them to `None` on failure,
+the `if ... is None` checks above handle that path cleanly.
+
+---
+
+### Cell 37 - EDIT - code - submit the SageMaker training job
+
+Maps to original cell 32. The source cell is INCONSISTENT: the comment and the
+estimator both use `ml.m5.xlarge` (CPU), but the Section 4 header calls for
+`ml.g4dn.xlarge` (GPU, NVIDIA T4). The rework brief is explicit: keep the remote
+GPU capstone on `ml.g4dn.xlarge`. Fix this cell to use the GPU instance
+everywhere, drop the "FIRST remote training job in the course" / "all capstones in
+Days 2 and 3" framing (Codex R13 / R12), rename the S3 prefix, and add a guard so
+the cell does not run if `capstone_ready` is False.
 
 Old comment block:
 
@@ -947,6 +1214,16 @@ New comment block:
 # Re-run the status cell below to check progress.
 ```
 
+New guard at the top of the cell body, before `estimator = PyTorch(...)`:
+
+```python
+if not capstone_ready:
+    raise RuntimeError(
+        "Capstone prerequisites not met - see the guard cell above. "
+        "Fix AWS access or skip the remaining capstone cells."
+    )
+```
+
 Old estimator line:
 
 ```python
@@ -957,6 +1234,18 @@ New estimator line:
 
 ```python
     instance_type="ml.g4dn.xlarge",    # GPU instance, NVIDIA T4
+```
+
+Old `output_path` line:
+
+```python
+    output_path=f"s3://{bucket}/topic4-translator/output",
+```
+
+New `output_path` line:
+
+```python
+    output_path=f"s3://{bucket}/optional-transformers-translator/output",
 ```
 
 Old print line:
@@ -971,18 +1260,16 @@ New print line:
 print(f"Instance: ml.g4dn.xlarge (GPU, NVIDIA T4)")
 ```
 
-Everything else in the cell stays identical: the `PyTorch` estimator construction,
-`output_path`, `base_job_name`, `hyperparameters` dict, `job_name` build,
-`estimator.fit(wait=False, ...)`, the launched-job prints and the monitor URL.
-
-NOTE: the `output_path` is `f"s3://{bucket}/topic4-translator/output"`. Leave the
-S3 prefix `topic4-translator` as-is to avoid breaking anything; it is just a bucket
-key, not student-facing text. (Optional: a builder may rename it to
-`optional-transformers-translator` for cleanliness, but this is not required.)
+Everything else in the cell stays identical: the `from sagemaker.pytorch import
+PyTorch` / `import time` header, the `PyTorch` estimator construction (entry_point,
+source_dir, role, framework_version, py_version, instance_count, base_job_name,
+hyperparameters dict), the `job_name` build, `estimator.fit(wait=False,
+job_name=job_name)`, `training_job_name = estimator.latest_training_job.name`, and
+the launched-job prints with the monitor URL.
 
 ---
 
-### Cell 36 - KEEP - code - training-job safety-net (kernel restart recovery)
+### Cell 38 - KEEP - code - training-job safety-net (kernel restart recovery)
 
 Maps to original cell 33. KEEP unchanged in BOTH notebooks. This is an operational
 recovery cell (re-defines `training_job_name` if the kernel restarted), not a lab
@@ -998,13 +1285,18 @@ if 'training_job_name' not in dir() or training_job_name is None:
 
 ---
 
-### Cell 37 - EDIT - code - check training job status
+### Cell 39 - EDIT - code - check training job status
 
-Maps to original cell 34. The functional code is correct and KEEPS. Only fix the
-misleading comment: the code already catches a broad `Exception`-style path via
-`sm_client.exceptions.ResourceNotFound`, but the comment line "L7: use
-ResourceNotFound (not ResourceNotFoundException)" is a stale internal note. Replace
-that comment line; everything else stays.
+Maps to original cell 34. The functional code KEEPS. Two changes:
+
+1. Replace the stale internal comment line.
+2. Flag and fix the `sm_client.exceptions.ResourceNotFound` footgun: depending on
+   the installed boto3 version, `sm_client.exceptions.ResourceNotFound` may not
+   exist as an attribute, and referencing it inside `except` raises an
+   `AttributeError` that masks the real status. The repo already hit this exact
+   problem (commit 1396025 replaced a non-existent
+   `sm_client.exceptions.ResourceNotFound` with a broad `Exception`). Apply the
+   same fix here: catch a broad `Exception` and return `("NotFound", "")`.
 
 Old comment lines:
 
@@ -1017,24 +1309,41 @@ New comment lines:
 
 ```python
 # Check training job status. Re-run this cell to refresh.
-# describe_training_job raises if the job name is not found yet.
+# describe_training_job raises if the job name is not found yet. boto3 does not
+# reliably expose sm_client.exceptions.ResourceNotFound across versions, so we
+# catch a broad Exception and treat any failure as "NotFound" (see repo history:
+# the same footgun was fixed once already).
 ```
 
-The rest of the cell (the `sm_client`, `get_job_status`, the status branching for
-InProgress / Completed / Failed) stays identical. NOTE for the builder: if
-`sm_client.exceptions.ResourceNotFound` raises an AttributeError at runtime in the
-target boto3 version, fall back to a broad `except Exception:` in `get_job_status`.
-This is a known footgun; prefer `except Exception:` returning `("NotFound", "")` if
-in any doubt. Keep the rest of the branching logic unchanged.
+Old `except` clause inside `get_job_status`:
+
+```python
+    except sm_client.exceptions.ResourceNotFound:
+        return "NotFound", ""
+```
+
+New `except` clause:
+
+```python
+    except Exception:
+        return "NotFound", ""
+```
+
+Everything else in the cell (the `sm_client = boto3.client("sagemaker", ...)`,
+`get_job_status`, the status branching for InProgress / Completed / Failed) stays
+identical. Note the `Completed` branch reads `ModelArtifacts.S3ModelArtifacts` -
+that path now points under the renamed `optional-transformers-translator` prefix,
+which is fine because SageMaker fills it in from the job itself.
 
 ---
 
-### Cell 38 - EDIT - markdown - Wrap-Up
+### Cell 40 - EDIT - markdown - Wrap-Up
 
-Maps to original cell 35. Remove all forward chaining: "In Topic 5 (Hugging Face)
-you will...", "capstones in Days 2 and 3", "The DistilBERT model you load in Topic
-5...", "Flan-T5 model in Topics 6 and 7", "Next session: Topic 5". Reframe as
-optional-track closure.
+Maps to original cell 35. Remove all forward chaining and required-path
+implications (Codex R12, R13): "In Topic 5 (Hugging Face) you will...", "capstones
+in Days 2 and 3", "The DistilBERT model you load in Topic 5...", "Flan-T5 model in
+Topics 6 and 7", "your first remote GPU training job", "Next session: Topic 5".
+Reframe as standalone optional-track closure.
 
 Old text:
 
@@ -1109,7 +1418,8 @@ New text:
 
 4. You ran a remote GPU training job on SageMaker ml.g4dn.xlarge. The pattern is
    reusable: write a train.py plus requirements.txt, create a PyTorch estimator,
-   call .fit().
+   call .fit(). The trained model lands in S3 under
+   `optional-transformers-translator/output`; download it manually if you want it.
 
 ### Homework Extensions
 
@@ -1144,15 +1454,45 @@ choose pre-trained Transformers with confidence.
 
 ## Builder checklist
 
-- [ ] Exercises notebook ends with 39 cells (0..38).
-- [ ] Cell 0 is the optional/supplementary banner.
+- [ ] Exercises notebook ends with 41 cells (0..40).
+- [ ] Cell 0 is the optional/supplementary banner; it states the concept is taught
+      as a required mini-lesson elsewhere and this notebook is the optional build.
+- [ ] Cell 9 introduces `torch.nn.MultiheadAttention` with its full call contract
+      BEFORE the cell-13 demo uses it (Codex R2).
+- [ ] Cell 35 is the AWS/SageMaker prerequisite note; cell 36 is the credentials
+      guard cell; both sit BEFORE the submit cell (Codex R4).
+- [ ] Cell 37 (submit) raises a clear RuntimeError if `capstone_ready` is False.
 - [ ] No occurrence of "Topic 3a", "Topic 3b", "Topic 4", "Topic 5", "Topics 6",
-      "Topic 6", "Topic 7", "Day 2", "Day 3", "YOU ARE HERE", "Next session"
+      "Topic 6", "Topic 7", "Topics 6-9", "Day 2", "Day 3", "YOU ARE HERE",
+      "Next session", "first remote training job", "FIRST remote training job"
       anywhere in any cell.
-- [ ] Capstone consistently references `ml.g4dn.xlarge` in prose, comments, the
-      estimator `instance_type`, and the status print.
+- [ ] Capstone consistently references `ml.g4dn.xlarge` in the Section 4 header,
+      the submit-cell comment, the estimator `instance_type`, the submit-cell
+      print, and the wrap-up. No `ml.m5.xlarge` and no `ml.t3.medium` anywhere.
+- [ ] S3 prefix is `optional-transformers-translator` in the estimator
+      `output_path` and the wrap-up text (not `topic4-translator`).
+- [ ] Status cell (39) catches a broad `Exception` in `get_job_status`, not
+      `sm_client.exceptions.ResourceNotFound`.
 - [ ] Plain ASCII only: no em-dash, en-dash, Unicode multiplication sign, emoji.
-- [ ] Solutions notebook: Lab 1 (cell 20) and Lab 2 (cell 30) stubs filled with the
-      implementations given above; lab safety-net cells (Exercises cells 22 and 32)
-      DELETED; training-job safety-net (cell 36) KEPT. Solutions ends with 37 cells.
+- [ ] Solutions notebook: Lab 1 (cell 20) and Lab 2 (cell 30) stubs filled with
+      the implementations given above; lab safety-net cells (Exercises cells 22
+      and 32) DELETED; training-job safety-net (cell 38) and AWS guard (cell 36)
+      KEPT. Solutions ends with 39 cells.
 - [ ] Run `/validate-notebooks` after each 5-cell batch.
+
+---
+
+## Codex R1 findings resolved
+
+| Finding | Summary | Resolved by |
+|---------|---------|-------------|
+| R2 | Notebook used `nn.MultiheadAttention` while implying it was "seen in Topic 5"; Topic 5 never shows it. | NEW cell 9 introduces `torch.nn.MultiheadAttention` with a full construction/call contract BEFORE the cell-13 self-attention demo and before every encoder/decoder layer (cells 26, 27, 30) that uses it. Cell 1 and cell 8 wording no longer claims prior exposure. |
+| R4 | Capstone assumed AWS creds / default bucket configured once per course; a standalone learner hits `NoCredentialsError`. | NEW cell 35 is an explicit AWS/SageMaker prerequisite note. NEW cell 36 is a guard cell that checks STS credentials, the SageMaker role, and the default bucket, never raises, sets `capstone_ready`, and prints concrete remediation. Cell 37 (submit) raises a clear RuntimeError if `capstone_ready` is False. Optional cell-7 hardening documented. |
+| R6 | Optional notebooks save artifacts that required notebooks then `load()`. | Artifact note in the front matter and on cell 34: this notebook only writes `scripts_optional_transformers/*` (consumed by its own job) and the S3 model artifact (auto-loaded by nothing). It loads no artifact produced elsewhere. R6 satisfied by construction; the doc forbids the builder from adding such a dependency. |
+| R12 | Docs committed to both "transformers are the architecture behind every model" and "you can skip this notebook". | Cell 0 banner states the concept is taught as a required mini-lesson elsewhere and THIS notebook is the optional from-scratch BUILD. Cells 4, 33, 40 strip all required-path / linear-sequence framing ("YOU ARE HERE" table, "Topics 6-9", "Next session: Topic 5"). Wording is consistently optional-deep-dive. |
+| R13 | Notebook called its GPU job "the first remote training job in the course" - false; required topic_4 already launches one. | Cell 33 and cell 37 drop "first/FIRST remote training job in the course" and "all capstones in Days 2 and 3"; the job is described neutrally as "the standard SageMaker training pattern". Cell 40 wrap-up says "You ran a remote GPU training job" with no "first" claim. |
+
+Note: the Solutions twin receives the identical changes - Lab 1 (cell 20) and Lab
+2 (cell 30) stubs filled with the working implementations given above, the two lab
+safety-net cells (Exercises cells 22 and 32) deleted, the training-job safety-net
+(cell 38) and the AWS guard (cell 36) kept. Solutions notebook ends with 39 cells.
