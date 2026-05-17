@@ -1,0 +1,11 @@
+flowchart TD
+    Start([Start: system prompt plus user message]) --> Build[Build messages list]
+    Build --> Call[Call the LLM with messages and TOOL_SCHEMAS]
+    Call --> Append[Append the LLM reply to messages]
+    Append --> Decide{Did the LLM request tool calls?}
+    Decide -- No --> Answer([Return the final answer])
+    Decide -- Yes --> Run[Run each requested tool in your code]
+    Run --> Results[Append each tool result to messages]
+    Results --> Limit{Turn limit reached?}
+    Limit -- No --> Call
+    Limit -- Yes --> Stop([Return: stopped at turn limit])

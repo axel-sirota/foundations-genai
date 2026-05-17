@@ -1,0 +1,5 @@
+validate-notebooks PASSED for topic 8 (agent capstone) on 2026-05-17.
+Exercise: 13 cells, Solution: 27 cells (by design - capstone exception).
+No syntax errors, no AI-tells, no branding, no anthropic imports.
+Expected exceptions: TOOL_SCHEMAS/TOOL_FUNCTIONS undefined in Exercise (student defines them);
+Exercise cell 11 intentional near-empty blank; no four-beat arc / no Tier 1-2 labs (capstone).
