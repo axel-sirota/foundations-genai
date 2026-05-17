@@ -1,0 +1,8 @@
+flowchart TD
+    LD[load_dataset name] --> DD[DatasetDict<br/>keys: train / validation / test]
+    LDS[load_dataset name, split=train] --> DS[Dataset<br/>single split]
+    DD -->|dd train| DS
+    DS --> Arrow[Apache Arrow columnar store<br/>streaming, random access]
+    DS --> Schema[features schema<br/>column names + types]
+    DS --> Idx[ds i returns row dict]
+    DS --> Filt[ds.filter predicate<br/>returns subset Dataset]

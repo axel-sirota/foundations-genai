@@ -1,0 +1,10 @@
+flowchart TD
+    In[input text] --> Pipe[pipeline task, model_id, device]
+    Pipe --> Route{task matches model pipeline_tag?}
+    Route -->|no| Err[ValueError or meaningless output<br/>random head, wrong shape]
+    Route -->|yes| Sel[auto-select tokenizer + AutoModelFor + formatter]
+    Sel --> TC[text-classification<br/>label + score]
+    Sel --> ZS[zero-shot-classification<br/>ranked candidate labels]
+    Sel --> TK[token-classification<br/>per-token entity spans]
+    Sel --> TG[text-generation<br/>completed text]
+    Sel --> FM[fill-mask<br/>top-k mask fills]

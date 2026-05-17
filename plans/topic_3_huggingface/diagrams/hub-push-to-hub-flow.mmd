@@ -1,0 +1,9 @@
+flowchart TD
+    Auth[authenticate<br/>HF token cached] --> Gate{token present?}
+    Gate -->|no| Fail[LocalTokenNotFoundError or<br/>RepositoryNotFoundError]
+    Gate -->|yes| Paths[choose upload path]
+    Paths --> A[HfApi.create_repo<br/>+ HfApi.upload_file<br/>per-file control]
+    Paths --> B[model.push_to_hub<br/>tokenizer.push_to_hub<br/>whole checkpoint]
+    A --> Repo[repo on the Hub<br/>private for Barclays]
+    B --> Repo
+    Repo --> Card[model card README.md<br/>travels with the upload]

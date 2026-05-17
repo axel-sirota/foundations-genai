@@ -1,0 +1,23 @@
+graph TD
+    P1[Virtual token 1 trainable]
+    P2[Virtual token 2 trainable]
+    PP[Virtual token P trainable]
+    T1[Input token 1]
+    T2[Input token 2]
+    TN[Input token N]
+    SEQ[Combined sequence P virtual tokens plus N input tokens]
+    BERT[FROZEN DistilBERT base model]
+    OUT[Classification output]
+    GRAD[Gradient updates flow only to virtual token embeddings]
+
+    P1 --> SEQ
+    P2 --> SEQ
+    PP --> SEQ
+    T1 --> SEQ
+    T2 --> SEQ
+    TN --> SEQ
+    SEQ --> BERT
+    BERT --> OUT
+    GRAD -.-> P1
+    GRAD -.-> P2
+    GRAD -.-> PP

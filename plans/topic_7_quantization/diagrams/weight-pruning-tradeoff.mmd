@@ -1,0 +1,12 @@
+graph TD
+    A[Trained model weights] --> B[Rank weights by absolute value]
+    B --> C[Zero out smallest-magnitude weights first]
+    C --> D{Pruning granularity}
+    D -->|Unstructured| E[Individual weights zeroed: max sparsity, needs sparse kernels]
+    D -->|Structured| F[Whole neurons or channels removed: real speedup on dense hardware]
+    E --> G[Sparser and smaller model]
+    F --> G
+    G --> H{Accuracy check}
+    H -->|Accuracy drop recoverable| I[Fine-tune to recover accuracy]
+    I --> B
+    H -->|Sparsity too high: accuracy falls off a cliff| J[Stop: keep last good checkpoint]
