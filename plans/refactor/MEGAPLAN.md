@@ -191,3 +191,21 @@ Each subagent, for its assigned notebook:
 - Phase 5 doc updates (TOPICS.md, CLAUDE.md curriculum table).
 - Phase 7 PyTorch Primer split.
 - zip regeneration, theory slides (deferred).
+
+## 9. DEFERRED: 4-class demo conversion for topics 5-7
+
+The required_path_continuity.md design doc only specced narrative
+renumbering edits for topics 5/6/7 - not a demo-body conversion. But the
+S3 chain is 4-class (topic_3 produces a 4-class labelled dataset; topic_4
+fine-tunes 4-class). topic_4's demo WAS converted to 4-class (commit
+e5e4b0c, after a Codex NO-GO). topic_5's demo was NOT - it is still
+binary SST-2 (scripts_topic5/train.py, the load_dataset("stanfordnlp/sst2")
+calls, num_labels=2, the lab cells). topic_5's handoff/contract layer IS
+4-class-coherent (commit 0072233).
+
+DEFERRED TASK: a dedicated pass to convert the in-notebook demo bodies of
+topic_5 (and topic_6, topic_7 if they have the same gap) from binary
+SST-2 to the 4-class Barclays routing task, so the demo matches the
+contract. This is known to fail a Codex coherence review until done.
+Until then, topics 5-7 ship with a 4-class S3 contract wrapping a binary
+demo - a known, recorded inconsistency.
