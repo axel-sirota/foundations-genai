@@ -1123,20 +1123,29 @@ remediation if anything is absent. It must NOT raise; it sets a boolean
 # Codex R4: a standalone learner with no AWS credentials must get a clear message
 # here instead of a raw NoCredentialsError deeper in the capstone.
 
-import boto3
-from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
-
 capstone_ready = True
 problems = []
 
-# 1. Are AWS credentials reachable at all?
+# 0. Is the AWS SDK even installed? Codex R2 finding N2: a laptop without
+#    boto3 would otherwise hit ModuleNotFoundError before the guard logic runs.
 try:
-    sts = boto3.client("sts")
-    identity = sts.get_caller_identity()
-    print(f"AWS credentials OK. Account: {identity['Account']}")
-except (NoCredentialsError, BotoCoreError, ClientError) as e:
+    import boto3
+    from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
+    _HAS_BOTO3 = True
+except ImportError:
+    _HAS_BOTO3 = False
     capstone_ready = False
-    problems.append(f"No usable AWS credentials: {type(e).__name__}")
+    problems.append("boto3 / botocore not installed (pip install boto3 sagemaker)")
+
+# 1. Are AWS credentials reachable at all?
+if _HAS_BOTO3:
+    try:
+        sts = boto3.client("sts")
+        identity = sts.get_caller_identity()
+        print(f"AWS credentials OK. Account: {identity['Account']}")
+    except (NoCredentialsError, BotoCoreError, ClientError) as e:
+        capstone_ready = False
+        problems.append(f"No usable AWS credentials: {type(e).__name__}")
 
 # 2. Is there a SageMaker execution role?
 try:
@@ -1148,14 +1157,15 @@ except Exception as e:
     problems.append(f"No SageMaker execution role: {e}")
 
 # 3. Is the default bucket reachable and writable?
-try:
-    if bucket is None:
-        raise ValueError("bucket is None")
-    boto3.client("s3").head_bucket(Bucket=bucket)
-    print(f"Default S3 bucket OK: {bucket}")
-except Exception as e:
-    capstone_ready = False
-    problems.append(f"Default S3 bucket not reachable: {type(e).__name__}")
+if _HAS_BOTO3:
+    try:
+        if bucket is None:
+            raise ValueError("bucket is None")
+        boto3.client("s3").head_bucket(Bucket=bucket)
+        print(f"Default S3 bucket OK: {bucket}")
+    except Exception as e:
+        capstone_ready = False
+        problems.append(f"Default S3 bucket not reachable: {type(e).__name__}")
 
 print()
 if capstone_ready:

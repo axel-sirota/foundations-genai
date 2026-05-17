@@ -1443,9 +1443,10 @@ pipeline-trace code cell) and BEFORE cell 37 ("What We Did NOT Cover Today"). Th
 placement means cell 37's edited "in depth" framing (Edit 2.2) correctly refers back to
 a mini-lesson the student has just seen.
 
-Insert FIVE new cells after cell 36 (using NotebookEdit with `cell_id` of cell 36, then
-chaining). All five cells are identical in the Exercises and Solutions copies. Cadence:
-this is one 5-cell batch; run /validate-notebooks after inserting.
+Insert SIX new cells after cell 36 (using NotebookEdit with `cell_id` of cell 36, then
+chaining): A(md), B(code), C(md), D(md), E(code), F(md). All six cells are identical in
+the Exercises and Solutions copies. Cadence: insert as a 5-cell batch then a 1-cell
+batch (or two batches of 3); run /validate-notebooks after each batch.
 
 ### New cell A (markdown) - "Section 5.5: How Self-Attention Works"
 
@@ -1590,7 +1591,32 @@ is where that understanding is collected; the head turns it into a Barclays comp
 category. You now have everything you need to follow that discussion.
 ```
 
-### New cell E (markdown) - "Mini-Lesson Recap" plus discussion prompt
+### New cell E (code) - tiny runnable check, breaks the markdown run
+
+Codex R2 finding N3: cells C and D are markdown and the original cell 37 (which
+follows the mini-lesson) is also markdown. Without a code cell here the run would
+be C, D, 37 plus the recap markdown = a 4-cell markdown chain, violating the
+CLAUDE.md "no more than 3 consecutive markdown cells" rule. This short runnable
+cell sits between the multi-head/encoder-block markdown and the recap, breaking
+the chain. It is a fully-worked demo, identical in Exercises and Solutions.
+
+```
+# Concept check: confirm the multi-head numbers for DistilBERT.
+# This uses only the config, no model download, no training.
+from transformers import DistilBertConfig
+
+cfg = DistilBertConfig()  # the standard distilbert-base-uncased configuration
+print(f"Transformer (encoder) blocks : {cfg.n_layers}")
+print(f"Attention heads per block    : {cfg.n_heads}")
+print(f"Hidden size                  : {cfg.dim}")
+print(f"Total attention heads        : {cfg.n_layers * cfg.n_heads}")
+print()
+print("Each of those heads produces one attention weight matrix - one heatmap -")
+print("exactly like the matrix the demo above printed. When Topic 4 visualizes an")
+print("attention head, it is showing one of these.")
+```
+
+### New cell F (markdown) - "Mini-Lesson Recap" plus discussion prompt
 
 ```
 ### Mini-Lesson Recap
@@ -1611,10 +1637,12 @@ will classify long Barclays complaints more reliably. Then name one cost of that
 (hint: think about how attention scales with sequence length).
 ```
 
-Note: cells A, C, D, E are four markdown cells, but cell B (code) sits between A and C,
-so the longest markdown run is three (C, D, E) - within the CLAUDE.md limit. The
-preceding cell (36) is code and the following cell (37) is markdown, so no violation is
-introduced.
+Note (markdown-run check, Codex R2 finding N3): the mini-lesson is six cells -
+A(md), B(code), C(md), D(md), E(code), F(md). Cell B breaks the A-C run; cell E
+(the DistilBertConfig check) breaks the C-D run AND separates D from cell F.
+After cell F (markdown) comes the original cell 37 (also markdown), so the
+longest markdown run anywhere is two (F, 37) - within the CLAUDE.md limit of 3.
+The preceding cell 36 is code. No violation.
 
 ---
 

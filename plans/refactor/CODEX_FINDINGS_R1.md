@@ -86,3 +86,28 @@ R12. Continuity doc commits to BOTH "Transformers are the architecture behind
 R13. optional_transformers calls its GPU job "the first remote training job in
      the course" - false, required topic_4 already launches one. FIX: drop
      "first in the course" framing; describe it neutrally.
+
+---
+
+# Codex (o3) Round 2 - verification + new findings
+
+Round 2 verified all 13 R1 findings RESOLVED. It raised 5 new issues (N1-N5).
+Resolution (Axel: fix N1-N4 directly in the docs, ignore N5):
+
+- N1 [FIXED] optional_attention_python.md: `seaborn` import now guarded with
+  try/except + `_HAS_SEABORN`; the heatmap helper falls back to matplotlib
+  `imshow` when seaborn is absent. Offline guarantee restored.
+- N2 [FIXED] optional_transformers.md: the AWS guard cell now wraps
+  `import boto3` / botocore itself in try/except (`_HAS_BOTO3`); credential
+  and bucket probes are skipped when the SDK is absent. No ModuleNotFoundError.
+- N3 [FIXED] required_path_continuity.md: the R7 transformer mini-lesson gains
+  a sixth cell - a runnable DistilBertConfig check (new cell E) between the
+  multi-head/encoder markdown and the recap - so the longest markdown run is 2,
+  not 4. Cell count and the (previously wrong) self-note corrected.
+- N4 [FIXED] optional_attention_pytorch.md: the merged safety-net was already
+  conditional, not unconditional as Codex phrased it; strengthened so that when
+  it DOES swap the student's class it announces it loudly and prints the probe
+  error + the likely cause (constructor arg not named `dropout_p`). No silent
+  replacement.
+- N5 [IGNORED] fixed-seed fallback embeddings - reproducibility is a feature for
+  an optional lesson; no change.

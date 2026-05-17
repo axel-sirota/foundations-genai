@@ -823,7 +823,14 @@ in this notebook, including the new cell 9 `nn.MultiheadAttention` call pattern
 from old cell 22 is dropped because its signature does not match. Place this safety-net
 BEFORE the verification cell so the verification can actually run.
 
-EXERCISE notebook: single safety-net cell:
+EXERCISE notebook: single safety-net cell.
+
+Codex R2 finding N4: the safety-net must NOT silently swap a student's class.
+The probe only triggers the fallback when the class genuinely fails to run with
+the expected API, and when it does swap it says so loudly - including the hint
+that a working-but-differently-named class (e.g. `dropout` instead of
+`dropout_p`) is the likely cause, so the student is never surprised by which
+implementation the verification below tests.
 
 ```python
 # Open-ended lab safety-net: run this if you did not finish the lab above.
@@ -833,20 +840,29 @@ EXERCISE notebook: single safety-net cell:
 # class is meant to have: __init__(dropout_p=0.0) and
 # forward(query, key, value) -> (output, attention_weights).
 _need_safety_net = False
+_probe_error = None
 try:
     _m = ScaledDotProductAttention(dropout_p=0.0)
     _q = torch.randn(1, 4, 16)
     _out, _w = _m(_q, _q, _q)
     if _out is None or _w is None:
         _need_safety_net = True
-except Exception:
+except Exception as e:
     _need_safety_net = True
+    _probe_error = e
 
 if _need_safety_net:
-    print("Using the open-ended lab safety-net so the rest of the notebook can run.")
+    print("Open-ended lab safety-net ENGAGED.")
+    print("Your ScaledDotProductAttention did not pass the probe, so the rest of")
+    print("the notebook (and the verification below) will use the reference class.")
+    if _probe_error is not None:
+        print(f"  probe error: {type(_probe_error).__name__}: {_probe_error}")
+        print("  if your class actually works, check the constructor arg is named")
+        print("  exactly 'dropout_p' and forward returns (output, weights).")
     ScaledDotProductAttention = ScaledDotProductAttentionReference
 else:
     print("ScaledDotProductAttention looks complete - safety-net not needed.")
+    print("The verification below tests YOUR implementation.")
 ```
 
 SOLUTION notebook: DELETE this cell entirely.

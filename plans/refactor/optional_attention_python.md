@@ -414,9 +414,18 @@ NEW text (full cell):
 
 ```
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
 import re
+
+# seaborn is optional - it only makes the heatmaps prettier. A locked-down
+# classroom image may not have it, so we guard the import. Codex R2 finding N1.
+try:
+    import seaborn as sns
+    _HAS_SEABORN = True
+except ImportError:
+    sns = None
+    _HAS_SEABORN = False
+    print("seaborn not installed - heatmaps will use plain matplotlib.")
 
 # This notebook can run fully OFFLINE. We try to load the small NLTK word2vec
 # sample for nicer real-word embeddings, but if there is no network (a common
@@ -504,10 +513,20 @@ def get_word2vec_embedding(words):
     return embeddings, words_pass
 
 def plot_attention_weight_matrix(weight_matrix, x_ticks, y_ticks, title="Attention weights"):
-    """Plot a 2D attention weight matrix as a heatmap."""
+    """Plot a 2D attention weight matrix as a heatmap.
+
+    Uses seaborn if available, otherwise plain matplotlib (Codex R2 finding N1).
+    """
     plt.figure(figsize=(max(8, len(x_ticks) * 1.2), max(5, len(y_ticks) * 0.8)))
-    ax = sns.heatmap(weight_matrix, cmap="Blues", annot=True, fmt=".2f",
-                     linewidths=0.5, linecolor="lightgray")
+    if _HAS_SEABORN:
+        sns.heatmap(weight_matrix, cmap="Blues", annot=True, fmt=".2f",
+                    linewidths=0.5, linecolor="lightgray")
+    else:
+        plt.imshow(weight_matrix, cmap="Blues", aspect="auto")
+        plt.colorbar()
+        for r in range(weight_matrix.shape[0]):
+            for c in range(weight_matrix.shape[1]):
+                plt.text(c, r, f"{weight_matrix[r, c]:.2f}", ha="center", va="center")
     plt.xticks(np.arange(weight_matrix.shape[1]) + 0.5, x_ticks, rotation=30, ha="right")
     plt.yticks(np.arange(weight_matrix.shape[0]) + 0.5, y_ticks, rotation=0)
     plt.title(title)
