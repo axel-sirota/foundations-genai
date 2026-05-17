@@ -82,10 +82,28 @@ between phases.
 
 ## Revised phase list
 
-- Phase 0: this plan approved.
-- Phase 1: two-pass directory rename (temp namespace dodges topic_4 collision).
-- Phase 2: fix in-notebook cross-references + diagram paths + scripts_topic refs.
-- Phase 3: mark the 4 optional notebooks supplementary + self-contained recaps.
+- Phase 0: this plan approved.  [DONE]
+- Phase 1: two-pass directory rename (temp namespace dodges topic_4 collision).  [DONE]
+- Phase 2: fix in-notebook references.
+  - 2a: diagram paths + scripts_topic refs.  [DONE]
+  - 2b: MECHANICAL text fixes only — self-reference renumbering in the 5
+    required notebooks, backward refs between required topics via the renumber
+    map, lowercase topic_N tokens. NOT touched: `\bTN\b` shorthand (overloaded
+    with the T4 GPU and T5 model family), anything referencing optional topics.
+- Phase 3: NARRATIVE REWORK (bigger than originally scoped).
+  - Rewrite the 4 optional notebooks to be genuinely standalone: drop the
+    sequential "next topic" narrative, rework "YOU ARE HERE" tables, add
+    self-contained recaps (COMPLAINT_TOKENS, LoRA setup). They are optional,
+    so they cannot assume the linear path.
+  - Tighten the 5 required notebooks' narrative around APPLICATION: reframe
+    every reference to an optional topic ("you built a transformer in T4" ->
+    "transformers, covered in the optional deep-dive, ...").
+  - KNOWN STALE REFS left by Phase 2b (must fix here): references to the
+    OLD topic_4 transformers now read "Topic 4" but new Topic 4 is
+    full_finetuning. Affected: topic_3_huggingface c0 ("In Topic 4 you
+    assembled a Transformer"), c6/c7 (COMPLAINT_TOKENS "carried over from
+    Topic 4"). Also all "Topic 7a"/"7b"/bare "Topic 7"/`T7b` shorthand
+    referring to LoRA topics, and "Topic 3a/3b" attention refs.
 - Phase 4: FIX issue 7 — new-T4 (old 6a) estimator.transformers_version bug.
 - Phase 5: update planning/config docs (TOPICS.md, CLAUDE.md table, etc.).
 - Phase 6: build new T8 agent capstone (small HF model in-kernel as the tool)
