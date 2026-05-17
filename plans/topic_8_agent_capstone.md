@@ -3,6 +3,26 @@
 Research basis: 4-cycle /research on capstone agent design (see session log).
 Pipeline: this is a FROM-SCRATCH build (/build-topic-notebook 8), NOT rework mode.
 
+## Context
+
+Topic 8 is the final topic and the capstone of the GenAI-for-developers course.
+Topics 1-7 built one running Barclays complaint-intelligence system, each topic
+saving its work to S3 (the handoff chain). Topic 8 connects all of it: the
+student builds a pure-Python agent that uses an LLM as its brain and calls the
+models they trained earlier as tools. It is the integrative, assessment-style
+topic - it introduces no new technique, it composes the prior seven.
+
+## Deliverables
+
+- Exercises/topic_8_agent_capstone/topic_8_agent_capstone.ipynb
+- Solutions/topic_8_agent_capstone/topic_8_agent_capstone.ipynb
+- plans/topic_8_agent_capstone/diagrams/agent-loop.mmd (via /build-diagrams)
+
+## Session Timing
+
+90 minutes. The hardest and most open task of the course - one Tier 3
+open-ended capstone, no scaffolding.
+
 ## Capstone Design Note (READ BEFORE BUILDING)
 
 Topic 8 is the CAPSTONE. It deliberately BREAKS the standard four-beat /
@@ -431,3 +451,39 @@ not a concept lesson.)
 - Plain ASCII only, no AI-tells.
 - Add the `<!-- DIAGRAM: -->` line to Cell 7 per the diagram index, so
   /build-diagrams can later generate agent-loop.mmd.
+
+# VERIFICATION CHECKLIST
+
+- [ ] Exercise + Solution notebooks build at the specified paths.
+- [ ] Setup cells (TF-disable, install, OpenAI client, S3 load, agent-loop
+      scaffold) are present verbatim and identical in both notebooks.
+- [ ] Exercise Cell 11 is the near-empty blank cell; Solution Cell 11 is the
+      multi-cell reference implementation (11a-11g).
+- [ ] Solution: 0 undefined names. Exercise: only TOOL_SCHEMAS/TOOL_FUNCTIONS
+      undefined (the student defines them - by design).
+- [ ] nbformat.validate passes on both.
+- [ ] No four-beat arc, no Tier 1/2 labs - capstone exemption, intentional.
+- [ ] Cell 7 carries the <!-- DIAGRAM: --> placeholder; the [View diagram]
+      link points at plans/topic_8_agent_capstone/diagrams/agent-loop.mmd.
+- [ ] No S3 WRITE cell (topic 8 produces nothing downstream).
+- [ ] Plain ASCII, no AI-tells.
+- [ ] gpt-4o brain, getpass for the key, no Anthropic SDK.
+
+# RESEARCH VALIDATED
+
+The capstone design was validated by a 4-cycle /research pass. Key sources:
+
+- Build an AI agent from scratch, no frameworks - https://alejandro-ao.com/agents-from-scratch/
+  Fact: a no-framework agent is LLM + tools + a ~60-line loop; building the
+  loop is the lesson, so the loop is GIVEN and the tools are the student work.
+- Minimal ReAct agent with OpenAI function calling - https://peterroelants.github.io/posts/react-openai-function-calling/
+  Fact: the loop sends messages+tools, runs tool calls, appends results with
+  matching tool_call_id, repeats until the model answers.
+- OpenAI function calling guide - https://developers.openai.com/api/docs/guides/function-calling
+  Fact: the model only decides which tool to call; the app executes it.
+- Load a HuggingFace model from S3 - https://huggingface.co/docs/sagemaker/inference
+  Fact: model artifacts may be absent if a student skipped a GPU job; tools
+  must degrade gracefully to a public model.
+- Capstone scope pitfalls - https://www.bestassignmentwriters.co.uk/blog/capstone-project-5-things-to-add-and-5-pitfalls-to-avoid/
+  Fact: over-broad scope is the #1 capstone failure; naive RAG was cut from
+  core scope to a Homework Extension for this reason.

@@ -110,10 +110,13 @@ training, weight pruning, serving quantized models. Writes the final deployment 
 
 ### Topic 8: Agent Capstone
 
-**Content**: a practical agent capstone running a small HuggingFace model in-kernel via
-`transformers` as the tool. Pure Python, no agent frameworks. Ties back to Topics 3-7.
-**Runs**: in Studio notebook (in-kernel small model).
-**Status**: NOT YET BUILT - new from-scratch build (Phase 6), separate plan.
+**Content**: a pure-Python ReAct agent (no frameworks), gpt-4o brain, with 3 tools
+that surface the student's prior work - a code tool, a fine-tuned classifier, and a
+PEFT classifier - each loading from the S3 handoff with a public-model fallback.
+Ties back to Topics 1-7.
+**Runs**: in Studio notebook (OpenAI API + in-kernel HuggingFace pipelines).
+**Plan**: `plans/topic_8_agent_capstone.md`.
+**Status**: BUILT - exercise + solution notebooks built and verified.
 
 ---
 
