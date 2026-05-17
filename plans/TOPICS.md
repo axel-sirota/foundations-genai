@@ -1,6 +1,12 @@
 # Topic-to-Notebook Mapping
 # Generative AI for Developers - Barclays
-# Last updated: 2026-05-11
+# Last updated: 2026-05-17 (Phase 5 - post-restructure renumbering)
+
+The course was restructured (see plans/restructure_course.md): attention,
+transformers, and LoRA-from-scratch were demoted from the required path into a
+standalone OPTIONAL theory track, the required topics were renumbered, and the
+course now builds ONE running Barclays complaint-intelligence system whose
+state is passed topic-to-topic via S3.
 
 ## Framework Folders (Prerequisites - not in the 3-day outline)
 <!-- F1 Status: done -->
@@ -32,225 +38,117 @@ This is the only notebook that teaches "how to use SageMaker" before students se
 
 ---
 
-## Day 1 Topics (runs in Studio notebook, no remote training)
+## Required Path (linear, S3-chained)
 
-### Topic 1: Overview of Generative AI (1 notebook)
+Every required notebook LOADS the previous topic's S3 artifact and WRITES its
+own. Key layout: `s3://<bucket>/barclays-course/topic_<N>/<file>`.
 
-| # | Notebook | Existing source | Status |
-|---|----------|----------------|--------|
-| 1 | Overview of Generative AI | none | BUILD FROM SCRATCH |
+| New topic | Slug | Old slug | LOADS | WRITES |
+|-----------|------|----------|-------|--------|
+| 1 | `topic_1_overview_genai` | topic_1 | (nothing - first) | topic_1/triage_config.json |
+| 2 | `topic_2_introducing_llms` | topic_2 | topic_1/triage_config.json | topic_2/complaint_corpus.json |
+| 3 | `topic_3_huggingface` | topic_5 | topic_2/complaint_corpus.json | topic_3/labelled_dataset.json + routing_labels.json |
+| 4 | `topic_4_full_finetuning` | topic_6a | topic_3/labelled_dataset.json | topic_4/model_pointer.json |
+| 5 | `topic_5_transfer_learning` | topic_6b | topic_4/model_pointer.json | topic_5/model_pointer.json |
+| 6 | `topic_6_peft_lora_distilbert` | topic_7b | topic_5/model_pointer.json | topic_6/model_pointer.json |
+| 7 | `topic_7_quantization` | topic_8 | topic_6/model_pointer.json | topic_7/deployment.json |
+| 8 | `topic_8_agent_capstone` | NEW | topic_7/deployment.json | (capstone - final) |
+
+### Topic 1: Overview of Generative AI
 
 **Content**: What is GenAI, generative model families (GANs, VAEs, Diffusion, Autoregressive),
-LLM-as-a-Service landscape (OpenAI/Anthropic APIs, tokens, temperature) - 30 min context-setting.
-No heavy code - conceptual + interactive demos via API.
+LLM-as-a-Service landscape (OpenAI APIs, tokens, temperature). No heavy code - conceptual +
+interactive demos via API. Writes the triage config (system prompt + test complaints) to S3.
 **Runs**: in Studio notebook (API calls only, no training).
+**Status**: built; Phase 3 narrative rework pending.
 
-- **Status**: not_started
-- [ ] Run `/run-research-topic 1`
-- [ ] Run `/build-topic-notebook 1`
-- [ ] Run `/validate-notebooks 1`
-- [ ] Run `/build-diagrams 1`
-
----
-
-### Topic 2: Introducing LLMs (1 notebook)
-
-| # | Notebook | Existing source | Status |
-|---|----------|----------------|--------|
-| 2 | Introducing LLMs | none | BUILD FROM SCRATCH |
+### Topic 2: Introducing LLMs
 
 **Content**: What lies behind ChatGPT, LLMs as Transformers, types of transformers and tasks,
-famous models (BERT, GPT, T5, LLaMA overview), GenAI project lifecycle vs ML lifecycle.
+famous models (BERT, GPT, T5, LLaMA overview), GenAI project lifecycle. Includes the
+concept-level transformer mini-lesson (so the required path does not depend on the optional
+attention/transformer notebooks).
 **Runs**: in Studio notebook (conceptual + light inference demos, no training).
+**Status**: built; Phase 3 narrative rework pending (gets the transformer mini-lesson).
 
-- **Status**: done
-- [x] Run `/run-research-topic 2`
-- [x] Run `/build-topic-notebook 2`
-- [ ] Run `/validate-notebooks 2`
-- [ ] Run `/build-diagrams 2`
+### Topic 3: Hugging Face
 
----
-
-### Topic 3: Introducing Attention (2 notebooks)
-
-| # | Notebook | Existing source | Status |
-|---|----------|----------------|--------|
-| 3a | Seq2Seq and Bahdanau Attention (pure Python) | `Exercises/8_Attention.ipynb` | heavy adapt |
-| 3b | Attention in PyTorch | `Exercises/9_Attention_with_Torch.ipynb` | heavy adapt |
-
-**3a content**: word2vec recap, seq2seq limitations, Bahdanau attention, dot-product and scaled
-dot-product attention in plain Python/numpy. Capstone: implement scaled dot-product attention from scratch.
-**3b content**: PyTorch MultiheadAttention, custom DotProductAttention and MultiHeadAttention classes.
-**Runs**: both in Studio notebook (no training jobs).
-
-**Adaptation needed**: SageMaker env setup, four-beat arc restructure, STAR method labs, diagram placeholders.
-
-- **Status**: done
-- [x] Run `/run-research-topic 3`
-- [x] Run `/build-topic-notebook 3`
-- [x] Run `/validate-notebooks 3`
-- [ ] Run `/build-diagrams 3`
-
----
-
-### Topic 4: Transformers (1 notebook + first remote GPU job)
-
-| # | Notebook | Existing source | Status |
-|---|----------|----------------|--------|
-| 4 | Transformer Architecture + Translator Capstone | `Exercises/11_Transformers_Translator.ipynb` | heavy adapt + remote GPU |
-
-**Content**: why seq2seq+attention had drawbacks, multi-head attention deep dive, full transformer
-architecture (positional encoding, layer norm, feed-forward, encoder/decoder), encoder vs decoder vs
-encoder-decoder. Capstone: build a Transformer translator from scratch.
-**Runs**: theory and architecture cells run in notebook; CAPSTONE TRAINS REMOTELY on `ml.g4dn.xlarge`
-(first GPU remote training job in the course - introduces the pattern).
-
-**Note**: `Exercises/10_NMT_with_Attention.ipynb` (NMT with cross-attention) can be used as
-a Beat 1 "before transformers" reference in the theory section but is not a separate notebook.
-
-**Adaptation needed**: major restructure, remote training integration, SageMaker estimator for capstone.
-
-- **Status**: not_started
-- [ ] Run `/run-research-topic 4`
-- [ ] Run `/build-topic-notebook 4`
-- [ ] Run `/validate-notebooks 4`
-- [ ] Run `/build-diagrams 4`
-
----
-
-## Day 2 Topics (mix of local and remote training)
-
-### Topic 5: Hugging Face (1 notebook)
-
-| # | Notebook | Existing source | Status |
-|---|----------|----------------|--------|
-| 5 | Hugging Face Hub and Ecosystem | none | BUILD FROM SCRATCH |
-
-**Content**: HuggingFace Hub intro, datasets library, loading and using a model, uploading a checkpoint.
-Light practical demos - pipeline API, tokenizers, model cards. No fine-tuning yet.
+**Content**: HuggingFace Hub intro, datasets library, loading and using a model, pipeline API,
+tokenizers, model cards. Produces the 4-class labelled routing dataset for downstream topics.
 **Runs**: in Studio notebook (inference only, no training jobs).
+**Status**: DONE - reworked and Codex-approved (the proven Phase 3 template).
 
-- **Status**: not_started
-- [ ] Run `/run-research-topic 5`
-- [ ] Run `/build-topic-notebook 5`
-- [ ] Run `/validate-notebooks 5`
-- [ ] Run `/build-diagrams 5`
+### Topic 4: Full Fine-Tuning
 
----
+**Content**: when to train vs not, compute costs, full fine-tuning, catastrophic forgetting,
+single vs multitask fine-tuning. Capstone: full fine-tune remotely, measure forgetting.
+Includes the issue-7 fix (estimator.transformers_version AttributeError).
+**Runs**: REMOTE GPU (HuggingFace estimator).
+**Status**: built; Phase 3 narrative rework pending.
 
-### Topic 6: Training LLMs - The Easy Part (2 notebooks)
+### Topic 5: Transfer Learning
 
-| # | Notebook | Existing source | Status |
-|---|----------|----------------|--------|
-| 6a | Full Fine-Tuning + Catastrophic Forgetting | `Exercises/4-Finetuning.ipynb` (partial) | heavy adapt + remote GPU |
-| 6b | Transfer Learning with DistilBERT | `Exercises/13_Transfer_Learning.ipynb` | heavy adapt + remote GPU |
+**Content**: transfer learning to avoid full fine-tuning, DistilBERT on the routing task.
+Capstone: transfer learning of DistilBERT.
+**Runs**: REMOTE CPU (PyTorch estimator) - intentional CPU demo.
+**Status**: built; Phase 3 narrative rework pending.
 
-**6a content**: when to train vs not, compute costs of LLM training, full fine-tuning of Flan-T5,
-verifying catastrophic forgetting, single vs multitask fine-tuning.
-Capstone: full fine-tune Flan-T5 remotely, measure forgetting.
-**Runs**: REMOTE GPU (`ml.g4dn.xlarge`, HuggingFace estimator).
+### Topic 6: PEFT / LoRA on DistilBERT
 
-**6b content**: transfer learning to avoid full fine-tuning, DistilBERT on sentiment analysis.
-Capstone: transfer learning of DistilBERT on SST-2.
-**Runs**: REMOTE CPU (`ml.m5.xlarge`, PyTorch estimator) - intentional CPU demo.
+**Content**: introducing PEFT, LoRA explained (low-rank decomposition), rank/alpha/dropout.
+Includes the LoRA mini-lesson so the topic does not depend on the optional lora_ffn notebook.
+Capstone: PEFT/LoRA fine-tune of DistilBERT.
+**Runs**: REMOTE GPU (HuggingFace estimator with PEFT library).
+**Status**: built; Phase 3 narrative rework pending.
 
-**Note**: `Exercises/4-Finetuning.ipynb` covers GloVe fine-tuning (too basic); use only as
-structural reference, not content. `Exercises/13_Transfer_Learning.ipynb` covers BERT on IMDB -
-reuse structure, adapt to DistilBERT + SageMaker remote training.
+### Topic 7: Quantization and Serving
 
-**Adaptation needed**: major - remote training integration, SageMaker estimators, Flan-T5 target.
+**Content**: introducing quantization, post-training quantization vs quantization-aware
+training, weight pruning, serving quantized models. Writes the final deployment artifact.
+**Runs**: REMOTE GPU.
+**Status**: built; Phase 3 narrative rework pending (drop stale end-of-course tables).
 
-- **Status**: not_started
-- [ ] Run `/run-research-topic 6`
-- [ ] Run `/build-topic-notebook 6`
-- [ ] Run `/validate-notebooks 6`
-- [ ] Run `/build-diagrams 6`
+### Topic 8: Agent Capstone
 
----
-
-### Topic 7: Training LLMs - PEFT (1 notebook)
-
-| # | Notebook | Existing source | Status |
-|---|----------|----------------|--------|
-| 7 | PEFT: LoRA, QLoRA, Soft Prompts | none | BUILD FROM SCRATCH |
-
-**Content**: introducing PEFT, LoRA explained (low-rank decomposition), QLoRA (quantization + LoRA),
-soft prompts / prompt tuning. Capstone: fine-tune Flan-T5 with LoRA for NER and summarization.
-**Runs**: REMOTE GPU (`ml.g4dn.xlarge`, HuggingFace estimator with PEFT library).
-
-- **Status**: not_started
-- [ ] Run `/run-research-topic 7`
-- [ ] Run `/build-topic-notebook 7`
-- [ ] Run `/validate-notebooks 7`
-- [ ] Run `/build-diagrams 7`
+**Content**: a practical agent capstone running a small HuggingFace model in-kernel via
+`transformers` as the tool. Pure Python, no agent frameworks. Ties back to Topics 3-7.
+**Runs**: in Studio notebook (in-kernel small model).
+**Status**: NOT YET BUILT - new from-scratch build (Phase 6), separate plan.
 
 ---
 
-## Day 3 Topics (remote training throughout)
+## Optional Theory Track (standalone, NOT S3-chained, mutually independent)
 
-### Topic 8: Deploying LLMs - Quantization (1 notebook)
+For advanced learners, taught from slides. Each notebook is self-contained: no
+sequential "next topic" narrative, no S3 handoff, self-contained recaps.
 
-| # | Notebook | Existing source | Status |
-|---|----------|----------------|--------|
-| 8 | Quantization and Serving | none | BUILD FROM SCRATCH |
+| Slug | Old slug | Content |
+|------|----------|---------|
+| `topic_optional_attention_python` | topic_3a | Seq2Seq limitations, Bahdanau attention, dot-product and scaled dot-product attention in plain Python/numpy. |
+| `topic_optional_attention_pytorch` | topic_3b | Attention in PyTorch: scaled_dot_product_attention, nn.MultiheadAttention, custom attention classes. |
+| `topic_optional_transformers` | topic_4 | Full transformer architecture (positional encoding, layer norm, feed-forward, encoder/decoder); translator capstone on GPU. |
+| `topic_optional_lora_ffn` | topic_7a | LoRA from scratch on a feed-forward network: low-rank matrices A/B, rank r. |
 
-**Content**: introducing quantization, post-training quantization vs quantization-aware training,
-weight pruning in PyTorch. Capstone: quantization-aware training for LLMs with LoRA. Serving quantized models.
-**Runs**: REMOTE GPU (`ml.g4dn.xlarge`).
-
-- **Status**: not_started
-- [ ] Run `/run-research-topic 8`
-- [ ] Run `/build-topic-notebook 8`
-- [ ] Run `/validate-notebooks 8`
-- [ ] Run `/build-diagrams 8`
-
----
-
-### Topic 9: RLHF - Time Permitting (1 notebook)
-
-| # | Notebook | Existing source | Status |
-|---|----------|----------------|--------|
-| 9 | RLHF | none | BUILD FROM SCRATCH |
-
-**Content**: RLHF intro, PPO algorithm, reward model, reward hacking and scaling issues.
-**Runs**: REMOTE GPU if capstone included; otherwise Studio notebook for conceptual parts.
-**Note**: time-permitting topic - design so it can be skipped without breaking flow.
-
-- **Status**: not_started
-- [ ] Run `/run-research-topic 9`
-- [ ] Run `/build-topic-notebook 9`
-- [ ] Run `/validate-notebooks 9`
-- [ ] Run `/build-diagrams 9`
-
----
-
-## Notebooks Not Used (from foundations-genai, retired for this course)
-
-| Notebook | Reason not used |
-|----------|----------------|
-| `2-Text_Processing_Logistic_Regression_and_Boosting.ipynb` | Classical ML (logistic regression, boosting) - below course level, audience already knows this |
-| `3-CBOW.ipynb` | CBOW word embeddings - too basic for this audience; word2vec is covered as a brief recap in Topic 3 |
-| `5-NewsClassification_MLP.ipynb` | MLP text classification - below course level |
-| `6_RentalGenerator_LSTM.ipynb` | LSTM text generation - covered by PyTorch Primer; not in outline |
-| `7_NER_BiLSTM.ipynb` | BiLSTM NER - below course level for this audience |
-| `10_NMT_with_Attention.ipynb` | NMT with cross-attention - used as Beat 1 reference in Topic 4, not a standalone notebook |
-| `12_Prompt_Engineering.ipynb` | Prompt engineering with Flan-T5 - covered as part of Topic 6/7, not a standalone notebook |
+**Status**: attention_python / attention_pytorch / transformers have Phase 3
+design docs and rework pending; `topic_optional_lora_ffn` design doc not yet written.
 
 ---
 
 ## Summary Table
 
-| Topic | # Notebooks | Remote Training | Existing coverage | Build effort |
-|-------|-------------|-----------------|-------------------|--------------|
-| P: PyTorch Reminder | 5 | none | full (adapt only) | low |
-| S: SageMaker Reminder | 1 | demo job | none | high |
-| 1: Overview of GenAI | 1 | none | none | medium |
-| 2: Introducing LLMs | 1 | none | none | medium |
-| 3: Introducing Attention | 2 | none | partial (8, 9) | medium |
-| 4: Transformers | 1 | GPU (first job) | partial (11) | high |
-| 5: Hugging Face | 1 | none | none | medium |
-| 6: Training LLMs Easy | 2 | GPU + CPU | partial (4, 13) | high |
-| 7: PEFT | 1 | GPU | none | high |
-| 8: Quantization | 1 | GPU | none | high |
-| 9: RLHF | 1 | GPU (optional) | none | medium |
-| **Total** | **17** | **6 jobs** | | |
+| Topic | Track | Remote Training | Build status |
+|-------|-------|-----------------|--------------|
+| P: PyTorch Reminder | prereq | none | done (adapt only) |
+| S: SageMaker Reminder | prereq | demo job | built |
+| 1: Overview of GenAI | required | none | built, rework pending |
+| 2: Introducing LLMs | required | none | built, rework pending |
+| 3: Hugging Face | required | none | DONE (reworked) |
+| 4: Full Fine-Tuning | required | GPU | built, rework pending |
+| 5: Transfer Learning | required | CPU | built, rework pending |
+| 6: PEFT / LoRA | required | GPU | built, rework pending |
+| 7: Quantization | required | GPU | built, rework pending |
+| 8: Agent Capstone | required | none (in-kernel) | not built |
+| optional: attention_python | optional | none | rework pending |
+| optional: attention_pytorch | optional | none | rework pending |
+| optional: transformers | optional | GPU | rework pending |
+| optional: lora_ffn | optional | GPU | design doc pending |

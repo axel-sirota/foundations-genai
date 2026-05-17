@@ -1,6 +1,13 @@
 """
-train.py - Transfer Learning with DistilBERT on SST-2 sentiment data
+train.py - Transfer Learning with DistilBERT on the Barclays complaint
+routing task (4 classes).
 SageMaker PyTorch estimator entry point (CPU: ml.m5.xlarge)
+
+Task: route a customer complaint into one of 4 Barclays categories:
+  0 = fraud and security
+  1 = billing and charges
+  2 = account access
+  3 = general enquiry
 
 Strategy: freeze all DistilBERT encoder layers, train only the
 pre_classifier + classifier head. This is transfer learning, not
@@ -26,7 +33,7 @@ from transformers import (
     Trainer,
     set_seed,
 )
-from datasets import load_dataset
+from datasets import concatenate_datasets
 
 
 def compute_metrics(eval_pred):
@@ -75,18 +82,123 @@ def freeze_encoder(model):
     print(f"Trainable ratio: {100.0 * trainable_count / (frozen_count + trainable_count):.2f}%")
 
 
-def build_dataset(dataset_name, tokenizer, max_length, num_train=2000, num_eval=500):
-    """
-    Load SST-2 from HuggingFace Hub, subsample for CPU speed,
-    tokenize, and return train/eval splits.
+LABEL_MAP = {
+    0: "fraud and security",
+    1: "billing and charges",
+    2: "account access",
+    3: "general enquiry",
+}
+NUM_LABELS = len(LABEL_MAP)
 
-    SST-2 label mapping: 0 = negative, 1 = positive
-    Column 'sentence' contains the review text.
-    """
-    raw = load_dataset(dataset_name)
 
-    train_data = raw["train"].shuffle(seed=42).select(range(num_train))
-    eval_data = raw["validation"].select(range(min(num_eval, len(raw["validation"]))))
+def barclays_routing_examples():
+    """
+    A compact 4-class Barclays complaint-routing dataset.
+
+    Used when no labelled dataset is supplied. The course spiral normally
+    feeds a real labelled dataset from Topic 3 via S3; this local set keeps
+    the training script self-contained and reproducible.
+
+    Categories:
+      0 = fraud and security
+      1 = billing and charges
+      2 = account access
+      3 = general enquiry
+    """
+    fraud = [
+        "There is an unauthorised payment on my account I did not make.",
+        "Someone used my card details to buy things abroad.",
+        "I think my account has been hacked, please block it.",
+        "A suspicious transfer left my account overnight.",
+        "I received a phishing text pretending to be Barclays.",
+        "My contactless card was cloned and used at a shop.",
+        "Fraudulent charges keep appearing every few days.",
+        "My identity may have been stolen and used for a loan.",
+        "An unknown direct debit was set up without my consent.",
+        "I want to report a scam that took money from my account.",
+        "My card was used while it was still in my wallet.",
+        "Please investigate these payments, they are not mine.",
+        "Someone tried to log in to my account from another country.",
+        "I got an alert about a payment I never authorised.",
+    ]
+    billing = [
+        "You charged me an overdraft fee I did not expect.",
+        "My monthly account fee went up without warning.",
+        "I was billed twice for the same standing order.",
+        "There is an interest charge on my statement I do not understand.",
+        "Why was I charged a fee for using my card overseas?",
+        "The late payment charge is unfair, my payment was on time.",
+        "I see a duplicate charge for the same transaction.",
+        "My statement shows a fee that should have been waived.",
+        "I was charged for a service I never signed up for.",
+        "The exchange rate fee on my purchase looks wrong.",
+        "Please explain the charges added to my account this month.",
+        "I want a refund for an incorrect billing amount.",
+        "My credit card minimum payment was miscalculated.",
+        "There is an unexpected annual fee on my account.",
+    ]
+    access = [
+        "I cannot log in to the mobile banking app.",
+        "My online banking password reset link does not work.",
+        "I am locked out of my account after too many attempts.",
+        "The app does not recognise my fingerprint anymore.",
+        "I did not receive the one-time passcode to sign in.",
+        "My account is showing as suspended and I cannot access it.",
+        "I forgot my memorable word and cannot get back in.",
+        "The website keeps logging me out immediately.",
+        "I need to reset my online banking credentials.",
+        "My card reader is not letting me authorise a login.",
+        "I cannot access my statements online.",
+        "The app crashes every time I try to open it.",
+        "I changed my phone and cannot set up the app again.",
+        "My digital banking access has stopped working.",
+    ]
+    general = [
+        "What are your branch opening hours this weekend?",
+        "How do I order a new chequebook?",
+        "Can you tell me which documents I need to open an account?",
+        "I would like to update my mailing address.",
+        "How long does an international transfer usually take?",
+        "What is the interest rate on your savings accounts?",
+        "Can I book an appointment with a mortgage adviser?",
+        "How do I add a second cardholder to my account?",
+        "Where can I find the nearest cash machine?",
+        "How do I close an account I no longer use?",
+        "What is the daily withdrawal limit on my debit card?",
+        "Can you explain how to set up a standing order?",
+        "I want to know more about your travel insurance options.",
+        "How do I register for paperless statements?",
+    ]
+    sentences, labels = [], []
+    for label, group in enumerate((fraud, billing, access, general)):
+        for text in group:
+            sentences.append(text)
+            labels.append(label)
+    return {"sentence": sentences, "label": labels}
+
+
+def build_dataset(tokenizer, max_length, num_train=2000, num_eval=500):
+    """
+    Build the 4-class Barclays routing dataset, tokenize, and return
+    train/eval splits.
+
+    The local dataset is small, so it is repeated to reach the requested
+    training size; this keeps CPU training time predictable while still
+    teaching transfer learning on the real 4-class routing task.
+
+    Label mapping: 0 = fraud and security, 1 = billing and charges,
+    2 = account access, 3 = general enquiry.
+    Column 'sentence' contains the complaint text.
+    """
+    from datasets import Dataset
+
+    base = barclays_routing_examples()
+    base_ds = Dataset.from_dict(base)
+
+    repeats = max(1, (num_train + num_eval) // len(base_ds) + 1)
+    pool = concatenate_datasets([base_ds] * repeats).shuffle(seed=42)
+    train_data = pool.select(range(min(num_train, len(pool))))
+    eval_data = base_ds.shuffle(seed=7).select(range(min(num_eval, len(base_ds))))
 
     def tokenize_fn(batch):
         return tokenizer(
@@ -97,9 +209,9 @@ def build_dataset(dataset_name, tokenizer, max_length, num_train=2000, num_eval=
         )
 
     train_tok = train_data.map(tokenize_fn, batched=True,
-                               remove_columns=["sentence", "idx"])
+                               remove_columns=["sentence"])
     eval_tok = eval_data.map(tokenize_fn, batched=True,
-                             remove_columns=["sentence", "idx"])
+                             remove_columns=["sentence"])
     train_tok = train_tok.rename_column("label", "labels")
     eval_tok = eval_tok.rename_column("label", "labels")
     train_tok.set_format("torch")
@@ -120,7 +232,9 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     model = AutoModelForSequenceClassification.from_pretrained(
         args.model_name,
-        num_labels=2,
+        num_labels=NUM_LABELS,
+        id2label=LABEL_MAP,
+        label2id={v: k for k, v in LABEL_MAP.items()},
     )
 
     if args.freeze_encoder:
@@ -130,10 +244,10 @@ def main():
         total = sum(p.numel() for p in model.parameters())
         print(f"\nFull fine-tuning mode: all {total:,} parameters trainable")
 
-    print("\nLoading and tokenizing SST-2 dataset (subsampled for CPU)...")
+    print("\nBuilding and tokenizing the 4-class Barclays routing dataset...")
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
     train_dataset, eval_dataset = build_dataset(
-        "stanfordnlp/sst2", tokenizer, args.max_length
+        tokenizer, args.max_length
     )
     print(f"Train: {len(train_dataset)} samples, Eval: {len(eval_dataset)} samples")
 

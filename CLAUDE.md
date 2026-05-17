@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Generative AI course for developers (originally `foundations-genai`). Content is organized into:
 
-- **`Exercises/`** — student-facing notebooks with blanks to fill in (numbered 2–13)
+- **`Exercises/`** — student-facing notebooks with blanks to fill in (`topic_1` … `topic_7` required path, plus `topic_optional_*` track)
 - **`Solutions/`** — complete reference implementations matching each exercise
 - **`PytorchPrimer/`** — PyTorch-specific exercises and demos (tensors, autograd, Dataset/DataLoader, classifiers)
 - **`student-environments/`** — Terraform + scripts to provision per-student AWS infrastructure
@@ -24,21 +24,36 @@ No virtualenv is pre-configured — create one before installing if needed.
 
 ## Notebook Curriculum (in order)
 
-| # | Topic |
-|---|-------|
-| 2 | Text processing, logistic regression, boosting |
-| 3 | CBOW word embeddings (gensim) |
-| 4 | Fine-tuning HuggingFace models |
-| 5 | News classification with MLP |
-| 6 | Text generation with LSTM |
-| 7 | Named entity recognition with BiLSTM |
-| 8–9 | Attention mechanisms (pure Python, then PyTorch) |
-| 10 | Neural machine translation with attention |
-| 11 | Transformer-based translator |
-| 12 | Prompt engineering |
-| 13 | Transfer learning |
+The course is a single running Barclays complaint-intelligence system. The
+required path is linear and S3-chained (topic N loads topic N-1's artifact).
 
-**PyTorch Primer** (separate track, 5 exercises): tensors → autograd/GPU → Dataset/DataLoader → `nn.Linear` classifier → `nn.Sequential` classifier.
+**Required path:**
+
+| # | Slug | Topic |
+|---|------|-------|
+| 1 | `topic_1_overview_genai` | Overview of Generative AI |
+| 2 | `topic_2_introducing_llms` | Introducing LLMs (includes transformer mini-lesson) |
+| 3 | `topic_3_huggingface` | Hugging Face Hub and ecosystem |
+| 4 | `topic_4_full_finetuning` | Full fine-tuning and catastrophic forgetting |
+| 5 | `topic_5_transfer_learning` | Transfer learning with DistilBERT |
+| 6 | `topic_6_peft_lora_distilbert` | PEFT / LoRA on DistilBERT (includes LoRA mini-lesson) |
+| 7 | `topic_7_quantization` | Quantization and serving |
+| 8 | `topic_8_agent_capstone` | Agent capstone (not yet built) |
+
+**Optional theory track** (standalone, NOT S3-chained, mutually independent —
+for advanced learners, internals/math):
+
+| Slug | Topic |
+|------|-------|
+| `topic_optional_attention_python` | Seq2Seq and Bahdanau attention (pure Python) |
+| `topic_optional_attention_pytorch` | Attention in PyTorch |
+| `topic_optional_transformers` | Transformer architecture and translator capstone |
+| `topic_optional_lora_ffn` | LoRA from scratch on a feed-forward network |
+
+**PyTorch Primer** (separate track, in `Frameworks/`): split into a lean CORE
+notebook (`pytorch_refresher` — tensors, Dataset/DataLoader, nn.Module classifier:
+what the fine-tuning topics actually use) and an OPTIONAL deep-dive
+(`pytorch_optional_deep_dive` — autograd internals, HuggingFace Trainer).
 
 Every exercise in `Exercises/` has a matching solution in `Solutions/`. When editing an exercise, keep the solution in sync.
 
@@ -67,7 +82,7 @@ Every concept in every notebook follows exactly this sequence — no exceptions:
 
 - **Tier 1 (guided)**: `variable = None  # YOUR CODE` with numbered steps + verification. 15-20 min. Most labs.
 - **Tier 2 (hard)**: Multi-step, less prescriptive. 25-35 min. ONE per day.
-- **Tier 3 (open-ended)**: Function signature + docstring only. ONE per day, last topic of day only (topics 3, 6, 9).
+- **Tier 3 (open-ended)**: Function signature + docstring only. ONE per day, last topic of the day only.
 
 Every lab has a **stretch version** for fast finishers and a **Homework Extension**.
 
@@ -120,7 +135,7 @@ Remove safety-net cells from the solution notebook (the lab cell IS the solution
 
 **Homework Extensions**: Keep in-class labs ~15 min each. Add a "Homework Extension" markdown + starter code cell after every lab for async exercises that build on in-class work.
 
-**Optional deep-dive notebooks**: When a topic has both a practical and theoretical side, the main notebook covers the practical (required for all students). Create a separate `topic_N_optional_<slug>.ipynb` for theory/internals (advanced learners, self-contained, clearly marked supplementary).
+**Optional deep-dive notebooks**: When a topic has both a practical and theoretical side, the required path covers the practical (required for all students). Theory/internals live in the standalone `topic_optional_<slug>` notebooks (advanced learners, self-contained, NOT S3-chained, clearly marked supplementary).
 
 **No markdown chain**: Never chain more than 3 consecutive markdown cells without a code cell in between — at minimum one line showing the concept in action.
 

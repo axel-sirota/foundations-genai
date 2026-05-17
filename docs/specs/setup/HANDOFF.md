@@ -10,7 +10,7 @@ type: side-save
 *Use `/side-resume setup` to restore context.*
 
 ## Goal
-Complete course setup for "Generative AI for Developers" (Barclays, 3-day intensive) — mapping, tooling, and all 13 notebooks built and validated.
+Complete course setup for "Generative AI for Developers" (Barclays, 3-day intensive) — mapping, tooling, and all course notebooks built and validated (8 required topics + 4 optional + framework prereqs).
 
 ## State
 - Completed:
@@ -29,9 +29,15 @@ Complete course setup for "Generative AI for Developers" (Barclays, 3-day intens
   - run-research-topic.md and build-topic-notebook.md updated to mandate reading the 3 plans files
 
 - In-flight: mapping complete, ready to start SDD workflow on first notebook
-- Remaining: build all 13 notebooks via SDD pipeline (F1, F2, Topics 1-8)
+- Remaining: build all course notebooks via SDD pipeline (F1, F2, required Topics 1-8, optional track)
 
 ## Notebook Map (confirmed)
+
+NOTE (2026-05-17, Phase 5): the course was restructured and renumbered after
+this handoff was written. The table below has been updated to the post-
+restructure numbering. See plans/restructure_course.md and plans/TOPICS.md.
+
+Required path (linear, S3-chained):
 
 | ID | Notebook | Source |
 |----|----------|--------|
@@ -39,21 +45,28 @@ Complete course setup for "Generative AI for Developers" (Barclays, 3-day intens
 | F2 | Frameworks/sagemaker_fundamentals.ipynb | BUILD FROM SCRATCH |
 | 1 | topic_1_overview_genai | BUILD FROM SCRATCH |
 | 2 | topic_2_introducing_llms | BUILD FROM SCRATCH (slides ref) |
-| 3a | topic_3a_attention_python | adapt Exercises/8_Attention.ipynb |
-| 3b | topic_3b_attention_pytorch | adapt Exercises/9_Attention_with_Torch.ipynb |
-| 4 | topic_4_transformers | adapt Exercises/11_Transformers_Translator.ipynb + remote GPU capstone |
-| 5 | topic_5_huggingface | BUILD FROM SCRATCH |
-| 6a | topic_6a_full_finetuning | adapt Exercises/4-Finetuning.ipynb (small encoder LLM, forgetting) |
-| 6b | topic_6b_transfer_learning | adapt Exercises/13_Transfer_Learning.ipynb (DistilBERT/SST-2, remote CPU) |
-| 7a | topic_7a_lora_ffn | adapt ~/repos/finetuning-llms-hf/3-LLMs/11_Simplified_LoRA_FFN.ipynb |
-| 7b | topic_7b_peft_lora_distilbert | adapt ~/repos/finetuning-llms-hf/3-LLMs/12_PEFT_LoRA_DistillBert.ipynb |
-| 8 | topic_8_quantization | adapt mastering-llm-deployments Lab4+Lab5+Lab6 scripts |
-| 9 | topic_9_rlhf | PARKED |
+| 3 | topic_3_huggingface | BUILD FROM SCRATCH (was topic_5) |
+| 4 | topic_4_full_finetuning | adapt Exercises/4-Finetuning.ipynb (was topic_6a) |
+| 5 | topic_5_transfer_learning | adapt Exercises/13_Transfer_Learning.ipynb (was topic_6b) |
+| 6 | topic_6_peft_lora_distilbert | adapt 12_PEFT_LoRA_DistillBert.ipynb (was topic_7b) |
+| 7 | topic_7_quantization | adapt mastering-llm-deployments Lab4-6 scripts (was topic_8) |
+| 8 | topic_8_agent_capstone | NEW BUILD (small HF model in-kernel) |
+
+Optional theory track (standalone, NOT S3-chained):
+
+| Slug | Source |
+|------|--------|
+| topic_optional_attention_python | adapt Exercises/8_Attention.ipynb (was topic_3a) |
+| topic_optional_attention_pytorch | adapt Exercises/9_Attention_with_Torch.ipynb (was topic_3b) |
+| topic_optional_transformers | adapt Exercises/11_Transformers_Translator.ipynb (was topic_4) |
+| topic_optional_lora_ffn | adapt 11_Simplified_LoRA_FFN.ipynb (was topic_7a) |
+
+(topic_9_rlhf remains PARKED / dropped.)
 
 ## Remote Training Split
-- Local (Studio kernel): F1, Topics 1, 2, 3a, 3b, 5
-- Remote CPU (ml.m5.xlarge, PyTorch estimator): F2 (demo), Topic 6b
-- Remote GPU (ml.g4dn.xlarge): Topics 4 (first GPU job), 6a, 7a, 7b, 8
+- Local (Studio kernel): F1, Topics 1, 2, 3, 8; optional attention notebooks
+- Remote CPU (ml.m5.xlarge, PyTorch estimator): F2 (demo), Topic 5
+- Remote GPU (ml.g4dn.xlarge): Topics 4, 6, 7; optional transformers + lora_ffn
 
 ## Key Technical Decisions
 - SageMaker SDK pinned >=2.200.0,<3.0.0 (v3 breaks get_execution_role)
