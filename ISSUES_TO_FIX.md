@@ -2,7 +2,7 @@
 
 Environment and notebook issues found during course delivery. Each entry is a fix to apply.
 
-## 1. TensorFlow import conflicts in all notebooks
+## 1. TensorFlow import conflicts in all notebooks  [DONE]
 
 **Problem:** Notebooks hit TensorFlow-related errors (transformers tries to load the TF backend on SageMaker images).
 
@@ -96,9 +96,13 @@ skipped - its only "pip install" text is inside comments/strings.
 
 **Scope:** All notebooks. Done via `/tmp/fix_issue4_split_cells.py`.
 
-## 5. Attention / transformers topics too math-heavy; 6a sec 2-3 unclear
+## 5. Attention / transformers topics too math-heavy; 6a sec 2-3 unclear  [DONE]
 
-**Status:** OPEN - approach not yet decided. Discuss before acting.
+**Resolved:** the full course restructure. Attention/transformers/LoRA-from-scratch
+were demoted to a standalone optional `topic_optional_*` track; the required path
+was renumbered to 7 topics + a capstone and reworked around application, with
+concept-level mini-lessons (transformer concepts in topic_2, LoRA mechanics in
+topic_6). See plans/refactor/MEGAPLAN.md and restructure_course.md. Codex-reviewed.
 
 **Problem (delivery feedback):**
 - The attention and transformers topics lean too hard on the math / internals.
@@ -121,7 +125,7 @@ skipped - its only "pip install" text is inside comments/strings.
 **Scope:** Topics 3a/3b (attention), 4 (transformers), 6a sec 2-3. Likely the
 largest item here - treat as a redesign, not a patch.
 
-## 6. PyTorch refresher too long; split core vs optional
+## 6. PyTorch refresher too long; split core vs optional  [DONE]
 
 **Problem (delivery feedback):** The PyTorch refresher took too long in class, so
 we never reached the content that actually matters (the PEFT / fine-tuning part).
@@ -131,13 +135,15 @@ we never reached the content that actually matters (the PEFT / fine-tuning part)
 - an OPTIONAL "nice to know" notebook for the rest.
 Goal: get to real content fast.
 
-**Decision point (TBD):** which of the 5 Primer exercises (tensors, autograd/GPU,
-Dataset/DataLoader, nn.Linear classifier, nn.Sequential classifier) are core vs
-optional. Core = whatever the fine-tuning topics actually depend on.
+**Resolved:** the Primer was split into a lean CORE notebook
+(`Frameworks/pytorch_refresher` - tensors, Dataset/DataLoader, nn.Module: what
+the fine-tuning topics use) and an OPTIONAL deep-dive
+(`Frameworks/pytorch_optional_deep_dive` - autograd internals, HF Trainer). See
+plans/refactor/pytorch_primer_split.md.
 
 **Scope:** PytorchPrimer track only (not the in-topic PyTorch sections).
 
-## 7. Topic 6a: estimator.transformers_version AttributeError
+## 7. Topic 6a: estimator.transformers_version AttributeError  [DONE]
 
 **Problem:** Topic 6a builds a SageMaker `HuggingFace` estimator with
 `transformers_version="4.56.2"` passed as a constructor arg, then a `print`
