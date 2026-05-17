@@ -111,3 +111,52 @@ Resolution (Axel: fix N1-N4 directly in the docs, ignore N5):
   replacement.
 - N5 [IGNORED] fixed-seed fallback embeddings - reproducibility is a feature for
   an optional lesson; no change.
+
+---
+
+# Codex (o3) Round 3 - pedagogical continuity (surgical)
+
+Round 3 checked TEACHING-NARRATIVE continuity, not code. Findings:
+
+C1. Topic 1 -> Topic 2 breaks the spiral. Topic 1 ends with a "Variables
+    available for Topic 2" banner (client, my_system_prompt, test_complaints)
+    but Topic 2 never references any of them (zero grep hits). The "variables
+    carry over exactly" rule is violated at the very first handoff. Pre-existing,
+    not caused by the renumber - but a real philosophy violation.
+
+C2. The whole required path restarts state per notebook instead of extending
+    one running Barclays system. Demo variables are recreated fresh each topic.
+
+C3. Mini-lesson placement risk: required_path_continuity.md adds the transformer
+    mini-lesson to topic_2 and the LoRA mini-lesson to topic_6, but topic_3
+    cell ~14 already says "In Topic 4 you assembled a Transformer" and topic_6
+    cells 13/148/263/296/346 say "recall LoRA from Topic 7a". Edits removing
+    those orphaned references must be VERIFIED to fire, and any in-place teaching
+    must land BEFORE the first such reference.
+
+## Resolution (decided with Axel)
+
+DECISION: cross-notebook handoff is done via S3, NOT kernel variables. The
+class runs on SageMaker in AWS; every notebook can read/write the course S3
+bucket. This makes the spiral literal and robust to kernel restarts between
+sessions.
+
+Apply COURSE-WIDE:
+- Each required notebook ENDS with a "handoff" cell that writes the artifacts
+  the next topic needs to a known S3 prefix (e.g.
+  s3://<bucket>/barclays-course/topic_<N>/...). Examples: topic_1 writes the
+  triage system prompt + the test complaints; later topics write datasets,
+  checkpoints, label maps, etc.
+- Each required notebook STARTS (after setup) with a "load handoff" cell that
+  reads the previous topic's artifacts from S3, with a clear fallback if absent
+  (define a minimal local version + print a note) so a student starting mid
+  course is not blocked.
+- The notebook narrative explicitly says "in the previous topic you produced X,
+  saved to S3; we load it now and extend it."
+- topic_1 has no predecessor: it only writes a handoff, no load.
+- This is the literal mechanism behind the "one running system, built layer by
+  layer" spiral.
+
+The continuity design doc (required_path_continuity.md) must gain a new section
+"S3 Handoff Chain" specifying, per topic: what it LOADS, what it WRITES, the S3
+key layout, and the fallback behavior. Plus C1/C3 fixes above.

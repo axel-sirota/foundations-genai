@@ -1837,28 +1837,1045 @@ course-position text lives in the system-overview tables, which Edits 3.2, 4.1, 
 
 ---
 
+## S3 Handoff Chain
+
+### Why this section exists
+
+Codex (o3) Round 3 (findings C1, C2, C3 in `CODEX_FINDINGS_R1.md`) found that the
+required path is not actually a spiral. Each notebook recreates its demo state from
+scratch instead of extending one running Barclays Customer Support Intelligence System.
+Topic 1 even ends with a "Variables available for Topic 2" banner that Topic 2 never
+references. The "variables carry over exactly" rule (CLAUDE.md) is violated at the very
+first handoff.
+
+The fix, decided with Axel: cross-notebook handoff is done via a course S3 bucket, not
+kernel variables. The class runs on SageMaker in AWS, where every notebook can read and
+write a course bucket. Each required notebook ENDS by writing the artifacts the next
+topic needs to a known S3 prefix, and STARTS (after setup) by reading the previous
+topic's artifacts back, with a clear fallback if absent. This makes the spiral literal
+and survives kernel restarts between sessions.
+
+This section is implementable on its own: a notebook-build agent can apply it without
+re-deriving anything. Every cell body below is complete, plain-ASCII Python.
+
+### Scope and conventions for this section
+
+- Every change in this section applies to BOTH copies of each notebook: the
+  `Exercises/<topic>/<topic>.ipynb` file AND the matching `Solutions/<topic>/<topic>.ipynb`
+  file. The handoff cells are fully-worked infrastructure code (no `# YOUR CODE` blanks),
+  so they are byte-identical in the Exercises and Solutions copies.
+- The handoff cells are NOT labs. They need no safety-net cell of the CLAUDE.md lab
+  pattern; instead, the LOAD cell has its OWN built-in fallback (same spirit as a
+  safety-net: if the S3 artifact is absent, define a minimal local version and print a
+  clear note) so a student starting mid-course is never blocked.
+- Plain ASCII only. No em-dashes, en-dashes, Unicode multiplication signs, emojis.
+- Cell indices below are 0-based, read from the `Exercises/` copy at commit 13187c0.
+  The `Solutions/` copy has the same ordering for these cells; if an index is off by
+  one in a Solutions file, match on the quoted neighbouring cell content instead.
+- Insertion cadence: the handoff cells are added in the same 5-cell-batch approval
+  cadence as everything else (CLAUDE.md). Per notebook there are at most two new cells
+  (one LOAD, one WRITE), so one batch per notebook is enough. Run `/validate-notebooks`
+  after each notebook.
+- These handoff cells are ADDITIVE. They do not replace any continuity edit above. Where
+  a continuity edit already rewrites a wrap-up cell (for example topic_1 Edit on cell
+  34, topic_4 Edit 4.8), the WRITE cell is inserted as a NEW cell AFTER that wrap-up
+  cell, and the wrap-up prose is additionally adjusted as noted per topic below.
+
+### Course-wide S3 key layout
+
+All handoff artifacts live under a single course prefix in the SageMaker default bucket:
+
+```
+s3://<bucket>/barclays-course/topic_<N>/<artifact>
+```
+
+- `<bucket>` is the SageMaker default bucket for the account and region
+  (`sagemaker.Session().default_bucket()`), the same bucket the remote-training topics
+  already use. It resolves to `sagemaker-<region>-<account-id>`.
+- `barclays-course/` is the fixed course namespace, so handoff artifacts never collide
+  with the per-topic training-job output prefixes (`topic7b-peft/`, etc.) the notebooks
+  already write.
+- `topic_<N>/` is the PRODUCING topic's number (1 through 7). A topic always writes
+  under its own number and reads from `topic_<N-1>/`.
+- `<artifact>` is a stable file name. JSON for small structured data
+  (`triage_config.json`, `label_map.json`, `dataset.json`), plain text for a single
+  string, and a pointer JSON (`model_pointer.json`) for anything that is itself an S3
+  object (a `model.tar.gz`), because an S3 model tarball is referenced by URI, not
+  copied.
+
+Full artifact map (the exact keys each topic writes):
+
+| Topic | Writes to `barclays-course/topic_<N>/` |
+|-------|-----------------------------------------|
+| topic_1 | `triage_config.json` (system prompt + the 5 test complaints + routing categories) |
+| topic_2 | `complaint_corpus.json` (the worked complaint texts + tokenizer name) |
+| topic_3 | `labelled_dataset.json` (labelled complaint examples + `label_map`) and `routing_labels.json` |
+| topic_4 | `model_pointer.json` (fine-tuned `model.tar.gz` S3 URI + `training_job_name` + label map) |
+| topic_5 | `model_pointer.json` (transfer-learned `model.tar.gz` S3 URI + endpoint name if deployed) |
+| topic_6 | `model_pointer.json` (PEFT/LoRA checkpoint `model.tar.gz` S3 URI + `training_job_name` + LoRA config) |
+| topic_7 | `deployment.json` (final quantized endpoint name + compression summary). Last topic: nothing reads it yet; topic_8 capstone will. |
+
+### Shared helper: the handoff module
+
+Every LOAD and WRITE cell uses the same four tiny helpers. To avoid repeating them,
+they are defined inline in each cell that needs them (the cells are self-contained;
+notebooks do not share a kernel). The canonical helper block, reused verbatim:
+
+```
+# --- S3 handoff helpers (course-wide, identical in every notebook) ---
+import json, boto3, botocore
+
+COURSE_PREFIX = "barclays-course"
+
+def _handoff_key(topic_n, artifact):
+    return f"{COURSE_PREFIX}/topic_{topic_n}/{artifact}"
+
+def handoff_write(bucket, topic_n, artifact, obj):
+    """Write a JSON-serialisable object to this topic's handoff prefix."""
+    key = _handoff_key(topic_n, artifact)
+    boto3.client("s3").put_object(
+        Bucket=bucket, Key=key,
+        Body=json.dumps(obj, indent=2).encode("utf-8"),
+    )
+    print(f"Handoff written: s3://{bucket}/{key}")
+    return key
+
+def handoff_read(bucket, topic_n, artifact):
+    """Read a JSON object from a topic's handoff prefix. Returns None if absent."""
+    key = _handoff_key(topic_n, artifact)
+    try:
+        body = boto3.client("s3").get_object(Bucket=bucket, Key=key)["Body"].read()
+        print(f"Handoff loaded: s3://{bucket}/{key}")
+        return json.loads(body)
+    except botocore.exceptions.ClientError:
+        print(f"No handoff found at s3://{bucket}/{key} (starting mid-course is fine).")
+        return None
+```
+
+Topics 4, 5, 6, 7 already define `bucket` in their SageMaker setup cell, so their
+handoff cells reuse it. Topics 1, 2, 3 have no SageMaker session today; their LOAD or
+WRITE cell first resolves `bucket` with this snippet (added at the top of the relevant
+handoff cell):
+
+```
+# Topics 1-3 have no sagemaker.Session(); resolve the course bucket directly.
+import sagemaker
+bucket = sagemaker.Session().default_bucket()  # sagemaker-<region>-<account-id>
+```
+
+`sagemaker` is already a dependency of topics 4-7. For topics 1-3 the install cell
+gains `"sagemaker>=2.200.0,<3.0.0"` (a small, additive change to the existing `pip
+install` cell; documented per topic below). If a fully offline / no-AWS student runs
+topics 1-3, the LOAD fallback and a try/except around `default_bucket()` keep them
+unblocked (see the per-topic fallback notes).
+
+### Honest note on non-serialisable objects (C1)
+
+The OpenAI `client` object created in topic_1 cell 20 CANNOT be serialised to S3 or
+JSON. The handoff therefore does NOT attempt to carry the client. What persists to S3
+is the DURABLE data: the triage system prompt and the test complaints. The `client` is
+simply recreated from the API key with `getpass.getpass()` in any later notebook that
+needs to call the OpenAI API (topic_7 already does exactly this in its endpoint-vs-API
+comparison). Every LOAD cell that mentions the client says so explicitly. This is the
+honest resolution of C1: prompt and complaints are state and persist; the client is a
+live connection and is rebuilt, never stored.
+
+---
+
+### topic_1 - overview_genai (PRODUCES only, no predecessor)
+
+LOADS: nothing. Topic 1 is first.
+
+PRODUCES: `barclays-course/topic_1/triage_config.json` containing the triage system
+prompt, the five test complaints, and the routing categories. These are the durable
+artifacts behind the old "Variables available for Topic 2" banner.
+
+Install-cell change: the topic_1 install cell (cell 2) gains `sagemaker` so the WRITE
+cell can resolve the bucket.
+
+OLD (cell 2):
+```
+!pip install -q "numpy<2" "openai>=1.0.0"
+```
+NEW (cell 2):
+```
+!pip install -q "numpy<2" "openai>=1.0.0" "sagemaker>=2.200.0,<3.0.0"
+```
+
+WRITE cell: insert ONE new code cell immediately AFTER cell 34 (the existing
+"Notebook complete" session-summary cell). The continuity edit above already rewrites
+cell 34's banner; this new cell turns the banner into a real S3 write.
+
+Additionally, in cell 34 itself, the "Variables available for Topic 2:" block is
+replaced so it no longer claims a kernel handoff:
+
+OLD (cell 34, the banner block):
+```
+print("Variables available for Topic 2:")
+print("  client           : OpenAI client (if key is still valid)")
+print("  my_system_prompt : your triage prompt from Lab 2")
+print("  test_complaints  : list of 5 test complaints")
+print()
+print("Next: Topic 2 - Introducing LLMs (what is inside the black box?)")
+```
+NEW (cell 34, the banner block):
+```
+print("Durable artifacts to save for Topic 2 (written to S3 in the next cell):")
+print("  my_system_prompt : your triage prompt from Lab 2")
+print("  test_complaints  : list of 5 test complaints")
+print("Note: the OpenAI client is a live connection, not data - it cannot be saved.")
+print("Later notebooks recreate it from your API key with getpass.")
+print()
+print("Next: Topic 2 - Introducing LLMs (what is inside the black box?)")
+```
+
+New WRITE cell (insert after cell 34), full content:
+```
+# Handoff to Topic 2: save the durable Barclays triage artifacts to the course S3 bucket.
+# In the next topic you load these back and extend the system - this is the spiral.
+# The OpenAI client is NOT saved: it is a live connection, recreated from your key later.
+
+# Topics 1-3 have no sagemaker.Session(); resolve the course bucket directly.
+import sagemaker
+bucket = sagemaker.Session().default_bucket()  # sagemaker-<region>-<account-id>
+
+# --- S3 handoff helpers (course-wide, identical in every notebook) ---
+import json, boto3, botocore
+
+COURSE_PREFIX = "barclays-course"
+
+def _handoff_key(topic_n, artifact):
+    return f"{COURSE_PREFIX}/topic_{topic_n}/{artifact}"
+
+def handoff_write(bucket, topic_n, artifact, obj):
+    """Write a JSON-serialisable object to this topic's handoff prefix."""
+    key = _handoff_key(topic_n, artifact)
+    boto3.client("s3").put_object(
+        Bucket=bucket, Key=key,
+        Body=json.dumps(obj, indent=2).encode("utf-8"),
+    )
+    print(f"Handoff written: s3://{bucket}/{key}")
+    return key
+
+# Routing categories the triage prompt uses (kept with the prompt for downstream topics).
+routing_categories = [
+    "payment_failure", "fraud_dispute", "account_access",
+    "fee_complaint", "unclassified",
+]
+
+triage_config = {
+    "system_prompt": my_system_prompt,
+    "test_complaints": test_complaints,
+    "routing_categories": routing_categories,
+}
+
+handoff_write(bucket, 1, "triage_config.json", triage_config)
+print()
+print("Topic 2 will load this and tokenize the same test complaints.")
+```
+
+Narrative line topic_1 adds (this is the print output above plus the rewritten cell 34
+banner): "Topic 2 will load this and tokenize the same test complaints." No load cell
+in topic_1 - it has no predecessor.
+
+---
+
+### topic_2 - introducing_llms
+
+LOADS: `barclays-course/topic_1/triage_config.json` - the triage system prompt and the
+five test complaints from Topic 1.
+
+USES what it loads: the loaded `test_complaints` are fed into the Section 1 tokenization
+demos and the Lab 1 `analyze_complaint_tokens` function as real example inputs, so the
+handoff is not decorative. The narrative explicitly connects "the complaints you triaged
+in Topic 1" to "the same complaints, now tokenized".
+
+PRODUCES: `barclays-course/topic_2/complaint_corpus.json` containing the worked
+complaint texts used across the notebook and the tokenizer name (`distilbert-base-uncased`)
+so downstream topics know which tokenizer the corpus was prepared with.
+
+Install-cell change: topic_2 cell 2 already pins `transformers`, `datasets`, etc. Add
+`sagemaker` so the handoff cells can resolve the bucket.
+
+OLD (cell 2, last dependency line):
+```
+    "scikit-learn>=1.3.0,<2.0.0"
+```
+NEW (cell 2, last dependency lines):
+```
+    "scikit-learn>=1.3.0,<2.0.0" \
+    "sagemaker>=2.200.0,<3.0.0"
+```
+
+LOAD cell: insert ONE new code cell immediately AFTER cell 3 (the imports/setup cell)
+and BEFORE cell 4 ("Section 1 - What Is a Token?"). Full content:
+```
+# Handoff from Topic 1: load the Barclays triage artifacts you produced there.
+# In Topic 1 you wrote a triage system prompt and 5 test complaints, and saved them
+# to S3. We load them now and extend the system: this topic tokenizes those same
+# complaints and turns them into embeddings.
+# The OpenAI client is NOT loaded - it is a live connection. Topic 2 does no API
+# calls, so no client is needed here.
+
+# Topics 1-3 have no sagemaker.Session(); resolve the course bucket directly.
+import sagemaker
+bucket = sagemaker.Session().default_bucket()
+
+# --- S3 handoff helpers (course-wide, identical in every notebook) ---
+import json, boto3, botocore
+
+COURSE_PREFIX = "barclays-course"
+
+def _handoff_key(topic_n, artifact):
+    return f"{COURSE_PREFIX}/topic_{topic_n}/{artifact}"
+
+def handoff_read(bucket, topic_n, artifact):
+    """Read a JSON object from a topic's handoff prefix. Returns None if absent."""
+    key = _handoff_key(topic_n, artifact)
+    try:
+        body = boto3.client("s3").get_object(Bucket=bucket, Key=key)["Body"].read()
+        print(f"Handoff loaded: s3://{bucket}/{key}")
+        return json.loads(body)
+    except botocore.exceptions.ClientError:
+        print(f"No handoff found at s3://{bucket}/{key} (starting mid-course is fine).")
+        return None
+
+_t1 = handoff_read(bucket, 1, "triage_config.json")
+
+if _t1 is not None:
+    test_complaints = _t1["test_complaints"]
+    triage_system_prompt = _t1["system_prompt"]
+    print(f"Loaded {len(test_complaints)} test complaints from Topic 1.")
+else:
+    # Fallback: student is starting at Topic 2. Define a minimal local version
+    # so the rest of the notebook runs. Same spirit as a lab safety-net cell.
+    print("Using a local fallback complaint set so Topic 2 runs standalone.")
+    test_complaints = [
+        "I sent 1200 pounds to my sister three days ago and it still has not arrived.",
+        "I just got an alert for a 350 pound transaction in Manchester I did not make.",
+        "I cannot log in to the app; it texts a code to my old phone number.",
+        "You charged me a 25 pound overdraft fee for being four hours overdrawn.",
+        "300 pounds left my account to someone I have never heard of.",
+    ]
+    triage_system_prompt = "You are a complaint triage agent for Barclays Bank."
+
+print("These are the complaints you triaged in Topic 1. Now we look inside the model:")
+print("we tokenize them and turn them into embeddings.")
+```
+
+Downstream wiring: cell 7 (the DistilBERT tokenization demo) and cell 9 (Lab 1) should
+draw their example text from `test_complaints[0]` instead of a fresh hardcoded string,
+so the handoff is genuinely used. Minimal adjustment - in cell 7, the line:
+```
+complaint = (
+    "I've been charged twice for the same transaction on my Barclaycard. "
+    "This is unacceptable and I need a refund immediately."
+)
+```
+becomes:
+```
+# Use the first complaint carried over from Topic 1 (loaded in the handoff cell above).
+complaint = test_complaints[0]
+```
+This is the only consuming change needed; the rest of cell 7 is unchanged. Cell 9's
+hardcoded `short_complaint` / `medium_complaint` may stay (they exercise length
+thresholds) but a one-line comment notes that `test_complaints` from Topic 1 are also
+valid inputs to `analyze_complaint_tokens`.
+
+WRITE cell: insert ONE new code cell immediately AFTER cell 39 (the Topic 2 wrap-up)
+and AFTER the existing cell 40 cleanup cell would be acceptable too; place it right
+after cell 39 so it runs before the optional cleanup. Full content:
+```
+# Handoff to Topic 3: save the Barclays complaint corpus for the HuggingFace topic.
+# Topic 3 loads this corpus to run pipeline() classification on real complaint text
+# instead of toy strings.
+
+# --- S3 handoff helpers ---
+import json, boto3
+
+COURSE_PREFIX = "barclays-course"
+
+def handoff_write(bucket, topic_n, artifact, obj):
+    key = f"{COURSE_PREFIX}/topic_{topic_n}/{artifact}"
+    boto3.client("s3").put_object(
+        Bucket=bucket, Key=key,
+        Body=json.dumps(obj, indent=2).encode("utf-8"),
+    )
+    print(f"Handoff written: s3://{bucket}/{key}")
+    return key
+
+complaint_corpus = {
+    "complaints": test_complaints,
+    "tokenizer_name": "distilbert-base-uncased",
+}
+
+handoff_write(bucket, 2, "complaint_corpus.json", complaint_corpus)
+print()
+print("Topic 3 will load this corpus and classify it with the HuggingFace pipeline API.")
+```
+
+Narrative line topic_2 adds: "In Topic 1 you produced a triage prompt and test
+complaints and saved them to S3; we load them now and look inside the model that would
+process them."
+
+---
+
+### topic_3 - huggingface
+
+LOADS: `barclays-course/topic_2/complaint_corpus.json` - the Barclays complaint texts
+from Topic 2.
+
+USES what it loads: the loaded complaints become the inputs to the Section 2
+`pipeline()` sentiment and zero-shot classification demos and to Lab 2's NER, instead
+of fresh hardcoded strings.
+
+PRODUCES: two artifacts under `barclays-course/topic_3/`:
+- `routing_labels.json` - the `COMPLAINT_LABELS` routing categories used for zero-shot
+  classification.
+- `labelled_dataset.json` - a small labelled complaint dataset (complaint text plus an
+  integer label) and the `label_map` (id-to-name). This is the dataset Topic 4 needs to
+  fine-tune on. It is built from the complaints classified during the notebook (the
+  zero-shot routing output is the cheap labelling step) plus a fixed `label_map`.
+
+Install-cell change: topic_3 cell 4 gains `sagemaker`.
+
+OLD (cell 4, last dependency line):
+```
+    "numpy<2"
+```
+NEW (cell 4, last dependency lines):
+```
+    "numpy<2" \
+    "sagemaker>=2.200.0,<3.0.0"
+```
+
+LOAD cell: insert ONE new code cell immediately AFTER cell 6 (the imports + seeds +
+COMPLAINT_TOKENS/COMPLAINT_LABELS cell) and BEFORE cell 7 ("What are we building
+today?"). Note this places the load AFTER the COMPLAINT_TOKENS definition that Edit 3.3
+already corrects; that is fine - COMPLAINT_TOKENS stays local, the load adds the
+complaint corpus. Full content:
+```
+# Handoff from Topic 2: load the Barclays complaint corpus you produced there.
+# In Topic 2 you tokenized and embedded a set of complaints and saved them to S3.
+# We load them now and extend the system: this topic classifies and routes them
+# with pretrained HuggingFace models.
+
+# Topics 1-3 have no sagemaker.Session(); resolve the course bucket directly.
+import sagemaker
+bucket = sagemaker.Session().default_bucket()
+
+# --- S3 handoff helpers ---
+import json, boto3, botocore
+
+COURSE_PREFIX = "barclays-course"
+
+def handoff_read(bucket, topic_n, artifact):
+    key = f"{COURSE_PREFIX}/topic_{topic_n}/{artifact}"
+    try:
+        body = boto3.client("s3").get_object(Bucket=bucket, Key=key)["Body"].read()
+        print(f"Handoff loaded: s3://{bucket}/{key}")
+        return json.loads(body)
+    except botocore.exceptions.ClientError:
+        print(f"No handoff found at s3://{bucket}/{key} (starting mid-course is fine).")
+        return None
+
+_t2 = handoff_read(bucket, 2, "complaint_corpus.json")
+
+if _t2 is not None:
+    course_complaints = _t2["complaints"]
+    print(f"Loaded {len(course_complaints)} complaints carried over from Topic 2.")
+else:
+    # Fallback: student is starting at Topic 3. Define a local complaint set.
+    print("Using a local fallback complaint set so Topic 3 runs standalone.")
+    course_complaints = [
+        "I sent 1200 pounds to my sister three days ago and it still has not arrived.",
+        "I just got an alert for a 350 pound transaction in Manchester I did not make.",
+        "I cannot log in to the app; it texts a code to my old phone number.",
+        "You charged me a 25 pound overdraft fee for being four hours overdrawn.",
+        "300 pounds left my account to someone I have never heard of.",
+    ]
+
+print("These are the same Barclays complaints from Topic 2. Now we route them with")
+print("pretrained HuggingFace models instead of looking at their embeddings.")
+```
+
+Downstream wiring: in cell 20 (the zero-shot classification demo) the complaint inputs
+should be `course_complaints` rather than fresh hardcoded strings; capture the predicted
+label per complaint into a list `routed_examples` of `{"text": ..., "label": <int>}` so
+the WRITE cell has a labelled dataset to persist. This is a small additive change to
+cell 20: after the existing zero-shot loop, add a few lines building `routed_examples`
+from the loop's predictions mapped through `COMPLAINT_LABELS`.
+
+WRITE cell: insert ONE new code cell immediately AFTER cell 43 (the "What is coming
+next" wrap-up) and BEFORE cell 44 (the end-of-topic footer). Full content:
+```
+# Handoff to Topic 4: save the labelled Barclays complaint dataset and routing labels.
+# Topic 4 loads this dataset to run full fine-tuning on a real, domain dataset
+# instead of a toy one.
+
+# --- S3 handoff helpers ---
+import json, boto3
+
+COURSE_PREFIX = "barclays-course"
+
+def handoff_write(bucket, topic_n, artifact, obj):
+    key = f"{COURSE_PREFIX}/topic_{topic_n}/{artifact}"
+    boto3.client("s3").put_object(
+        Bucket=bucket, Key=key,
+        Body=json.dumps(obj, indent=2).encode("utf-8"),
+    )
+    print(f"Handoff written: s3://{bucket}/{key}")
+    return key
+
+# Routing labels (zero-shot categories) used across the rest of the course.
+handoff_write(bucket, 3, "routing_labels.json", {"labels": COMPLAINT_LABELS})
+
+# Labelled dataset for Topic 4 fine-tuning. label_map is id -> category name.
+label_map = {i: name for i, name in enumerate(COMPLAINT_LABELS)}
+
+# routed_examples was built in the zero-shot section above. If that cell was not run,
+# fall back to a minimal labelled set so the handoff still completes.
+try:
+    examples = routed_examples
+except NameError:
+    examples = [{"text": t, "label": 0} for t in course_complaints]
+
+labelled_dataset = {
+    "examples": examples,
+    "label_map": label_map,
+}
+handoff_write(bucket, 3, "labelled_dataset.json", labelled_dataset)
+print()
+print("Topic 4 will load this labelled dataset and fine-tune DistilBERT on it.")
+```
+
+Narrative line topic_3 adds: "In Topic 2 you produced a complaint corpus and saved it
+to S3; we load it now and route those complaints with pretrained models, then save a
+labelled dataset for Topic 4 to fine-tune on."
+
+---
+
+### topic_4 - full_finetuning
+
+LOADS: `barclays-course/topic_3/labelled_dataset.json` and
+`barclays-course/topic_3/routing_labels.json` - the labelled complaint dataset and
+routing labels Topic 3 produced.
+
+USES what it loads: the loaded `label_map` sets `num_labels` for the model and the
+loaded examples seed the Lab 1 / Section 2 fine-tuning data, so the fine-tuning runs on
+the dataset the course has been building rather than an unrelated toy set.
+
+PRODUCES: `barclays-course/topic_4/model_pointer.json` - a pointer JSON holding the
+fine-tuned model's `model.tar.gz` S3 URI (`estimator.model_data`), the
+`training_job_name`, and the `label_map`. A model tarball is referenced by URI, not
+copied, hence a pointer.
+
+`bucket` already exists (cell 3, SageMaker setup). No install-cell change needed
+(`sagemaker` is already pinned).
+
+LOAD cell: insert ONE new code cell immediately AFTER cell 5 (the `import numpy`/setup
+cell, after the SageMaker session in cell 3) and BEFORE cell 6 ("CUDA Health Check").
+Full content:
+```
+# Handoff from Topic 3: load the labelled Barclays complaint dataset.
+# In Topic 3 you routed complaints with pretrained models and saved a labelled
+# dataset to S3. We load it now and extend the system: this topic fine-tunes
+# DistilBERT on that exact dataset.
+
+# --- S3 handoff helpers ---
+import json, boto3, botocore
+
+COURSE_PREFIX = "barclays-course"
+
+def handoff_read(bucket, topic_n, artifact):
+    key = f"{COURSE_PREFIX}/topic_{topic_n}/{artifact}"
+    try:
+        body = boto3.client("s3").get_object(Bucket=bucket, Key=key)["Body"].read()
+        print(f"Handoff loaded: s3://{bucket}/{key}")
+        return json.loads(body)
+    except botocore.exceptions.ClientError:
+        print(f"No handoff found at s3://{bucket}/{key} (starting mid-course is fine).")
+        return None
+
+_t3 = handoff_read(bucket, 3, "labelled_dataset.json")
+
+if _t3 is not None:
+    course_examples = _t3["examples"]
+    label_map = {int(k): v for k, v in _t3["label_map"].items()}
+    print(f"Loaded {len(course_examples)} labelled examples and "
+          f"{len(label_map)} labels from Topic 3.")
+else:
+    # Fallback: student is starting at Topic 4. Define a minimal labelled set.
+    print("Using a local fallback labelled dataset so Topic 4 runs standalone.")
+    label_map = {0: "fraud and security", 1: "billing and charges",
+                 2: "account access", 3: "general enquiry"}
+    course_examples = [
+        {"text": "Unauthorised charge appeared on my account.", "label": 0},
+        {"text": "You charged me an overdraft fee I did not expect.", "label": 1},
+        {"text": "I cannot log in to the mobile app.", "label": 2},
+        {"text": "What are your branch opening hours?", "label": 3},
+    ]
+
+num_labels = len(label_map)
+print(f"Fine-tuning target: {num_labels}-class Barclays complaint classifier.")
+```
+
+Downstream wiring: cell 16's `LAB_TRAIN_TEXTS` dataset stays as the in-notebook lab
+data, but a one-line comment notes that `course_examples` loaded above is the
+course-spiral dataset; where the notebook builds a `Dataset` for fine-tuning it may
+extend it with `course_examples`. `num_labels` from the handoff feeds
+`AutoModelForSequenceClassification.from_pretrained(..., num_labels=num_labels)`
+wherever the notebook currently hardcodes a label count.
+
+WRITE cell: insert ONE new code cell immediately AFTER cell 44 (the existing
+"variable inventory" recap cell that Edit 4.8 rewrites). The WRITE cell is the real
+mechanism behind that inventory. Full content:
+```
+# Handoff to Topic 5: save a pointer to the fine-tuned model artifacts.
+# A model.tar.gz lives in S3 already; we save its URI (a pointer), not a copy.
+# Topic 5 loads this pointer to compare transfer learning against full fine-tuning.
+
+# --- S3 handoff helpers ---
+import json, boto3
+
+COURSE_PREFIX = "barclays-course"
+
+def handoff_write(bucket, topic_n, artifact, obj):
+    key = f"{COURSE_PREFIX}/topic_{topic_n}/{artifact}"
+    boto3.client("s3").put_object(
+        Bucket=bucket, Key=key,
+        Body=json.dumps(obj, indent=2).encode("utf-8"),
+    )
+    print(f"Handoff written: s3://{bucket}/{key}")
+    return key
+
+# estimator.model_data and training_job_name come from the Section 4 GPU job.
+# If the remote job was not run in this kernel, fall back to None so the handoff
+# still records the label map for Topic 5.
+try:
+    finetuned_model_uri = estimator.model_data
+except (NameError, Exception):
+    finetuned_model_uri = None
+
+try:
+    _job = training_job_name
+except NameError:
+    _job = None
+
+model_pointer = {
+    "model_tar_uri": finetuned_model_uri,
+    "training_job_name": _job,
+    "label_map": label_map,
+    "kind": "full_finetune",
+}
+handoff_write(bucket, 4, "model_pointer.json", model_pointer)
+print()
+if finetuned_model_uri is None:
+    print("Note: no model URI recorded (GPU job not run in this kernel).")
+    print("Topic 5 will fall back to fine-tuning fresh if the URI is missing.")
+print("Topic 5 will load this pointer and compare it against transfer learning.")
+```
+
+Narrative line topic_4 adds: "In Topic 3 you produced a labelled complaint dataset and
+saved it to S3; we load it now and fine-tune DistilBERT on it, then save the trained
+model's S3 location for Topic 5."
+
+---
+
+### topic_5 - transfer_learning
+
+LOADS: `barclays-course/topic_4/model_pointer.json` - the fine-tuned model URI and
+label map from Topic 4.
+
+USES what it loads: the loaded `label_map` configures the transfer-learning head; the
+loaded full-fine-tune model URI is the baseline that Section 5's comparison
+(`compare_checkpoints`) measures the transfer-learned model against - so the Topic 4 vs
+Topic 5 comparison uses the real Topic 4 artifact.
+
+PRODUCES: `barclays-course/topic_5/model_pointer.json` - a pointer JSON with the
+transfer-learned model's `model.tar.gz` URI (`trained_model_data`), the
+`training_job_name`, the endpoint name if one was deployed, and the `label_map`.
+
+`bucket` already exists (cell 4). No install-cell change needed.
+
+LOAD cell: insert ONE new code cell immediately AFTER cell 4 (the SageMaker session
+setup) and BEFORE cell 5 ("CUDA Health Check"). Full content:
+```
+# Handoff from Topic 4: load the fine-tuned model pointer you produced there.
+# In Topic 4 you fully fine-tuned DistilBERT and saved the model's S3 URI.
+# We load it now and extend the system: this topic trains a transfer-learning
+# variant and compares it against that full-fine-tune baseline.
+
+# --- S3 handoff helpers ---
+import json, boto3, botocore
+
+COURSE_PREFIX = "barclays-course"
+
+def handoff_read(bucket, topic_n, artifact):
+    key = f"{COURSE_PREFIX}/topic_{topic_n}/{artifact}"
+    try:
+        body = boto3.client("s3").get_object(Bucket=bucket, Key=key)["Body"].read()
+        print(f"Handoff loaded: s3://{bucket}/{key}")
+        return json.loads(body)
+    except botocore.exceptions.ClientError:
+        print(f"No handoff found at s3://{bucket}/{key} (starting mid-course is fine).")
+        return None
+
+_t4 = handoff_read(bucket, 4, "model_pointer.json")
+
+if _t4 is not None:
+    finetune_model_uri = _t4.get("model_tar_uri")
+    label_map = {int(k): v for k, v in _t4["label_map"].items()}
+    print(f"Loaded Topic 4 full-fine-tune pointer; {len(label_map)} labels.")
+    if finetune_model_uri is None:
+        print("Topic 4 recorded no model URI; the Section 5 comparison will note this.")
+else:
+    # Fallback: student is starting at Topic 5.
+    print("Using a local fallback label map so Topic 5 runs standalone.")
+    finetune_model_uri = None
+    label_map = {0: "negative", 1: "positive"}
+
+num_labels = len(label_map)
+print(f"Transfer-learning target: {num_labels}-class classifier.")
+```
+
+Downstream wiring: cell 44 (`compare 6a full fine-tune vs 6b transfer learning`) uses
+`finetune_model_uri` as the full-fine-tune checkpoint argument to `compare_checkpoints`
+instead of a hardcoded or placeholder URI; if `finetune_model_uri` is None, the cell
+prints a clear note that the comparison runs transfer-learning-only.
+
+WRITE cell: insert ONE new code cell immediately AFTER cell 46 (the "Key Takeaways"
+final cell). Full content:
+```
+# Handoff to Topic 6: save a pointer to the transfer-learned model.
+# Topic 6 loads this so its PEFT/LoRA work continues the same Barclays classifier.
+
+# --- S3 handoff helpers ---
+import json, boto3
+
+COURSE_PREFIX = "barclays-course"
+
+def handoff_write(bucket, topic_n, artifact, obj):
+    key = f"{COURSE_PREFIX}/topic_{topic_n}/{artifact}"
+    boto3.client("s3").put_object(
+        Bucket=bucket, Key=key,
+        Body=json.dumps(obj, indent=2).encode("utf-8"),
+    )
+    print(f"Handoff written: s3://{bucket}/{key}")
+    return key
+
+try:
+    transfer_model_uri = trained_model_data
+except NameError:
+    transfer_model_uri = None
+
+try:
+    _job = training_job_name
+except NameError:
+    _job = None
+
+try:
+    _endpoint = predictor.endpoint_name
+except (NameError, AttributeError):
+    _endpoint = None
+
+model_pointer = {
+    "model_tar_uri": transfer_model_uri,
+    "training_job_name": _job,
+    "endpoint_name": _endpoint,
+    "label_map": label_map,
+    "kind": "transfer_learning",
+}
+handoff_write(bucket, 5, "model_pointer.json", model_pointer)
+print()
+print("Topic 6 will load this pointer and adapt the classifier with PEFT and LoRA.")
+```
+
+Narrative line topic_5 adds: "In Topic 4 you produced a fully fine-tuned model and
+saved its S3 location; we load it now as the baseline, train a transfer-learning
+variant, and save that for Topic 6."
+
+---
+
+### topic_6 - peft_lora_distilbert
+
+LOADS: `barclays-course/topic_5/model_pointer.json` - the transfer-learned model
+pointer and label map from Topic 5.
+
+USES what it loads: the loaded `label_map` sets `num_labels` for the PEFT model; the
+loaded transfer-learned model URI is referenced as the starting checkpoint the LoRA
+adapters extend, so the PEFT topic continues the same classifier rather than starting
+from raw `distilbert-base-uncased` with no lineage.
+
+PRODUCES: `barclays-course/topic_6/model_pointer.json` - a pointer JSON with the
+PEFT/LoRA fine-tuned `model.tar.gz` URI (from the Section 4 GPU job, currently written
+under `s3://{bucket}/topic7b-peft/output/`), the `training_job_name`, the LoRA config
+(`lora_r`, `lora_alpha`), and the `label_map`.
+
+`bucket` already exists (cell 3). No install-cell change needed.
+
+Placement note vs the R8 mini-lesson: the R8 LoRA mini-lesson is inserted after cell 5
+(see the "R8 Mini-Lesson" section). The LOAD cell goes EARLIER - immediately AFTER
+cell 3 (the SageMaker session setup) and BEFORE cell 4 ("Day 2 System Overview" /
+"Where This Topic Fits"). This keeps the load right after the session is available and
+well before the mini-lesson, so there is no ordering conflict.
+
+LOAD cell: insert ONE new code cell immediately AFTER cell 3 and BEFORE cell 4. Full
+content:
+```
+# Handoff from Topic 5: load the transfer-learned model pointer you produced there.
+# In Topic 5 you trained a transfer-learning classifier and saved its S3 URI.
+# We load it now and extend the system: this topic adapts the same classifier with
+# parameter-efficient fine-tuning (PEFT and LoRA).
+
+# --- S3 handoff helpers ---
+import json, boto3, botocore
+
+COURSE_PREFIX = "barclays-course"
+
+def handoff_read(bucket, topic_n, artifact):
+    key = f"{COURSE_PREFIX}/topic_{topic_n}/{artifact}"
+    try:
+        body = boto3.client("s3").get_object(Bucket=bucket, Key=key)["Body"].read()
+        print(f"Handoff loaded: s3://{bucket}/{key}")
+        return json.loads(body)
+    except botocore.exceptions.ClientError:
+        print(f"No handoff found at s3://{bucket}/{key} (starting mid-course is fine).")
+        return None
+
+_t5 = handoff_read(bucket, 5, "model_pointer.json")
+
+if _t5 is not None:
+    prior_model_uri = _t5.get("model_tar_uri")
+    label_map = {int(k): v for k, v in _t5["label_map"].items()}
+    print(f"Loaded Topic 5 transfer-learning pointer; {len(label_map)} labels.")
+else:
+    # Fallback: student is starting at Topic 6.
+    print("Using a local fallback label map so Topic 6 runs standalone.")
+    prior_model_uri = None
+    label_map = {0: "negative", 1: "positive"}
+
+num_labels = len(label_map)
+print(f"PEFT/LoRA target: {num_labels}-class Barclays complaint classifier.")
+```
+
+Downstream wiring: wherever the notebook builds the base
+`AutoModelForSequenceClassification` it uses `num_labels=num_labels` from the handoff;
+the Section 4 launch cell comment notes that `prior_model_uri` is the lineage of the
+classifier being adapted.
+
+WRITE cell: insert ONE new code cell immediately AFTER cell 46 (the cell that reads the
+metrics summary and surfaces the training-job status), so the pointer is written once
+the GPU job name is known. Full content:
+```
+# Handoff to Topic 7: save a pointer to the PEFT/LoRA fine-tuned model.
+# Topic 7 loads this checkpoint and compresses it (quantization, pruning, distillation).
+
+# --- S3 handoff helpers ---
+import json, boto3
+
+COURSE_PREFIX = "barclays-course"
+
+def handoff_write(bucket, topic_n, artifact, obj):
+    key = f"{COURSE_PREFIX}/topic_{topic_n}/{artifact}"
+    boto3.client("s3").put_object(
+        Bucket=bucket, Key=key,
+        Body=json.dumps(obj, indent=2).encode("utf-8"),
+    )
+    print(f"Handoff written: s3://{bucket}/{key}")
+    return key
+
+# The PEFT GPU job writes model.tar.gz under s3://<bucket>/topic7b-peft/output/.
+try:
+    peft_model_uri = resp["ModelArtifacts"]["S3ModelArtifacts"]
+except (NameError, KeyError, TypeError):
+    peft_model_uri = None
+
+try:
+    _job = training_job_name
+except NameError:
+    _job = None
+
+model_pointer = {
+    "model_tar_uri": peft_model_uri,
+    "training_job_name": _job,
+    "lora_config": {"lora_r": 8, "lora_alpha": 16},
+    "label_map": label_map,
+    "kind": "peft_lora",
+}
+handoff_write(bucket, 6, "model_pointer.json", model_pointer)
+print()
+if peft_model_uri is None:
+    print("Note: no PEFT model URI recorded (GPU job not run in this kernel).")
+    print("Topic 7 will fall back to a fresh DistilBERT if the URI is missing.")
+print("Topic 7 will load this pointer and compress the model for production serving.")
+```
+
+Narrative line topic_6 adds: "In Topic 5 you produced a transfer-learned model and
+saved its S3 location; we load it now and adapt it with PEFT and LoRA, then save the
+PEFT checkpoint for Topic 7."
+
+---
+
+### topic_7 - quantization
+
+LOADS: `barclays-course/topic_6/model_pointer.json` - the PEFT/LoRA checkpoint pointer
+and label map from Topic 6.
+
+USES what it loads: the loaded `label_map` sets `num_labels` for the model loaded in
+cell 7; the loaded PEFT checkpoint URI is the model the compression pipeline
+(quantization, pruning, distillation) operates on. Topic 7 cell 0 and cell 7 already
+say "Each section loads the checkpoint fresh from S3"; this handoff makes that literal
+by giving cell 7 the actual Topic 6 URI. The existing self-containment fallback in
+cell 7 (re-load `distilbert-base-uncased`) becomes the LOAD cell's fallback branch.
+
+PRODUCES: `barclays-course/topic_7/deployment.json` - the final quantized endpoint name
+and a compression summary (size before/after, latency before/after). Topic 7 is the
+last required topic, so nothing reads this yet; the planned topic_8 agent capstone will
+consume it. Writing it completes the chain and keeps the spiral honest.
+
+`bucket` already exists (cell 3). No install-cell change needed.
+
+LOAD cell: insert ONE new code cell immediately AFTER cell 5 (the CUDA health-check
+cell) and BEFORE cell 6 (the "Each section loads checkpoints from S3" note). Full
+content:
+```
+# Handoff from Topic 6: load the PEFT/LoRA checkpoint pointer you produced there.
+# In Topic 6 you adapted the Barclays classifier with PEFT and LoRA and saved the
+# checkpoint's S3 URI. We load it now and extend the system: this topic compresses
+# that model for cheap production serving.
+
+# --- S3 handoff helpers ---
+import json, boto3, botocore
+
+COURSE_PREFIX = "barclays-course"
+
+def handoff_read(bucket, topic_n, artifact):
+    key = f"{COURSE_PREFIX}/topic_{topic_n}/{artifact}"
+    try:
+        body = boto3.client("s3").get_object(Bucket=bucket, Key=key)["Body"].read()
+        print(f"Handoff loaded: s3://{bucket}/{key}")
+        return json.loads(body)
+    except botocore.exceptions.ClientError:
+        print(f"No handoff found at s3://{bucket}/{key} (starting mid-course is fine).")
+        return None
+
+_t6 = handoff_read(bucket, 6, "model_pointer.json")
+
+if _t6 is not None:
+    peft_checkpoint_uri = _t6.get("model_tar_uri")
+    label_map = {int(k): v for k, v in _t6["label_map"].items()}
+    print(f"Loaded Topic 6 PEFT checkpoint pointer; {len(label_map)} labels.")
+    if peft_checkpoint_uri is None:
+        print("Topic 6 recorded no checkpoint URI; compressing a fresh model instead.")
+else:
+    # Fallback: student is starting at Topic 7. Compress a fresh classifier.
+    print("Using a fresh DistilBERT classifier so Topic 7 runs standalone.")
+    peft_checkpoint_uri = None
+    label_map = {0: "fraud and security", 1: "billing and charges",
+                 2: "account access", 3: "general enquiry", 4: "unclassified"}
+
+num_labels = len(label_map)
+print(f"Compression target: a {num_labels}-class Barclays complaint classifier.")
+```
+
+Downstream wiring: cell 7 currently hardcodes `num_labels=5`; it uses `num_labels` from
+the handoff instead. Cell 7's comment is updated to note that when `peft_checkpoint_uri`
+is set the production pipeline would load that tarball; the fresh-load path remains as
+the documented fallback (consistent with Edit 7.4).
+
+WRITE cell: insert ONE new code cell immediately AFTER cell 63 (the "Course Complete"
+cell). Full content:
+```
+# Handoff to the future agent capstone (topic_8): save the final deployment record.
+# Topic 7 is the last required topic. Writing this completes the course S3 chain;
+# the planned agent capstone will load it as the deployed Barclays classifier.
+
+# --- S3 handoff helpers ---
+import json, boto3
+
+COURSE_PREFIX = "barclays-course"
+
+def handoff_write(bucket, topic_n, artifact, obj):
+    key = f"{COURSE_PREFIX}/topic_{topic_n}/{artifact}"
+    boto3.client("s3").put_object(
+        Bucket=bucket, Key=key,
+        Body=json.dumps(obj, indent=2).encode("utf-8"),
+    )
+    print(f"Handoff written: s3://{bucket}/{key}")
+    return key
+
+# endpoint_name is set in Section 5 when the quantized model is deployed.
+try:
+    _endpoint = endpoint_name
+except NameError:
+    _endpoint = None
+
+deployment = {
+    "endpoint_name": _endpoint,
+    "label_map": label_map,
+    "compression": "PTQ + pruning + distillation (see Section 5 results)",
+    "kind": "quantized_endpoint",
+}
+handoff_write(bucket, 7, "deployment.json", deployment)
+print()
+print("Course S3 handoff chain complete: topic_1 -> topic_7.")
+print("The Barclays Complaint Intelligence System is one artifact lineage in S3.")
+```
+
+Narrative line topic_7 adds: "In Topic 6 you produced a PEFT-adapted model and saved
+its S3 location; we load it now and compress it for production, then record the final
+deployment so the whole course is one artifact lineage in S3."
+
+---
+
+### Handoff chain summary table
+
+| Topic | LOAD (from prev) | PRODUCE (own prefix) | LOAD cell after | WRITE cell after |
+|-------|------------------|----------------------|-----------------|------------------|
+| topic_1 | nothing (first) | `topic_1/triage_config.json` | n/a | cell 34 |
+| topic_2 | `topic_1/triage_config.json` | `topic_2/complaint_corpus.json` | cell 3 | cell 39 |
+| topic_3 | `topic_2/complaint_corpus.json` | `topic_3/labelled_dataset.json`, `topic_3/routing_labels.json` | cell 6 | cell 43 |
+| topic_4 | `topic_3/labelled_dataset.json` + `routing_labels.json` | `topic_4/model_pointer.json` | cell 5 | cell 44 |
+| topic_5 | `topic_4/model_pointer.json` | `topic_5/model_pointer.json` | cell 4 | cell 46 |
+| topic_6 | `topic_5/model_pointer.json` | `topic_6/model_pointer.json` | cell 3 | cell 46 |
+| topic_7 | `topic_6/model_pointer.json` | `topic_7/deployment.json` | cell 5 | cell 63 |
+
+New cells added for the handoff chain: 13 total (topic_1 has WRITE only = 1; topics 2-7
+each have LOAD + WRITE = 12). Every cell is fully-worked infrastructure code, identical
+in the Exercises and Solutions copies. The LOAD cells carry their own fallback (the
+safety-net spirit). No `# YOUR CODE` blanks, no separate safety-net cell needed.
+
+---
+
 ## Summary of edits
 
-| Notebook | Continuity edits | New mini-lesson cells | Notes |
-|----------|------------------|-----------------------|-------|
-| topic_1_overview_genai | 2 | 0 | wrap-up forward references |
-| topic_2_introducing_llms | 7 | 5 (R7 transformer mini-lesson) | roadmap reframes + new Section 5.5 |
-| topic_3_huggingface | 7 | 0 | false "Topic 4 transformers" prereq, COMPLAINT_TOKENS |
-| topic_4_full_finetuning | 8 (4.7 is a no-op) | 0 | system table + LoRA/PEFT renumbering; R10 verified clean |
-| topic_5_transfer_learning | 5 | 0 | system table + LoRA handoff reframe |
-| topic_6_peft_lora_distilbert | 10 (6.7 is a no-op) | 3 (R8 LoRA mini-lesson) | "you built LoRA in 7a" reframing |
-| topic_7_quantization | 8 (7.2 is a no-op) | 0 | T7b->Topic 6, Flan-T5 fix, T8/T9 cleanup, recap table |
+| Notebook | Continuity edits | New mini-lesson cells | S3 handoff cells | Notes |
+|----------|------------------|-----------------------|------------------|-------|
+| topic_1_overview_genai | 2 | 0 | 1 (WRITE only) | wrap-up forward references; banner -> S3 write |
+| topic_2_introducing_llms | 7 | 5 (R7 transformer mini-lesson) | 2 (LOAD + WRITE) | roadmap reframes + new Section 5.5 |
+| topic_3_huggingface | 7 | 0 | 2 (LOAD + WRITE) | false "Topic 4 transformers" prereq, COMPLAINT_TOKENS |
+| topic_4_full_finetuning | 8 (4.7 is a no-op) | 0 | 2 (LOAD + WRITE) | system table + LoRA/PEFT renumbering; R10 verified clean |
+| topic_5_transfer_learning | 5 | 0 | 2 (LOAD + WRITE) | system table + LoRA handoff reframe |
+| topic_6_peft_lora_distilbert | 10 (6.7 is a no-op) | 3 (R8 LoRA mini-lesson) | 2 (LOAD + WRITE) | "you built LoRA in 7a" reframing |
+| topic_7_quantization | 8 (7.2 is a no-op) | 0 | 2 (LOAD + WRITE) | T7b->Topic 6, Flan-T5 fix, T8/T9 cleanup, recap table |
 
 Notebooks needing changes: 7 of 7.
 Continuity edits specified: 47 entries; 3 (4.7, 6.7, 7.2) are explicit "no change"
 confirmations, leaving 44 actual replacement edits.
-New cells inserted: 8 total (5 in topic_2 for the R7 mini-lesson, 3 in topic_6 for the
-R8 mini-lesson).
+New mini-lesson cells inserted: 8 total (5 in topic_2 for the R7 mini-lesson, 3 in
+topic_6 for the R8 mini-lesson).
+New S3 handoff cells inserted: 13 total (topic_1 WRITE only; topics 2-7 each LOAD +
+WRITE). See the "S3 Handoff Chain" section for full per-cell content.
+Install-cell adjustments: 3 (topics 1, 2, 3 add `"sagemaker>=2.200.0,<3.0.0"` so the
+handoff cells can resolve the course bucket; topics 4-7 already pin it).
 Diagram files changed: 0 (R11 audit found no stale `.mmd` captions).
 
-Every edit and every new-cell insertion applies to BOTH the `Exercises/` copy and the
-`Solutions/` copy of the named notebook. The mini-lesson cells are fully-worked demos
-and are identical in both copies (no `# YOUR CODE` blanks, no safety-net cell needed).
+Every edit, every new mini-lesson cell, and every new S3 handoff cell applies to BOTH
+the `Exercises/` copy and the `Solutions/` copy of the named notebook. The mini-lesson
+cells and the handoff cells are fully-worked code, identical in both copies (no
+`# YOUR CODE` blanks; the LOAD cells carry their own fallback, so no separate
+safety-net cell is needed).
 
 ---
 
@@ -1877,3 +2894,80 @@ and are identical in both copies (no `# YOUR CODE` blanks, no safety-net cell ne
 Note on R1-R5 and R13: these are OWNED by the optional-notebooks design doc, not this
 required-path doc. They are listed in CODEX_FINDINGS_R1.md for completeness but are out
 of scope here; this doc covers only the seven required notebooks.
+
+---
+
+## Codex R3 findings resolved
+
+Round 3 checked teaching-narrative continuity. The three findings and the S3 handoff
+DECISION are resolved as follows.
+
+| Finding | Resolution location in this doc |
+|---------|---------------------------------|
+| C1 (Topic 1 -> Topic 2 breaks the spiral: the "Variables available for Topic 2" banner lists `client` / `my_system_prompt` / `test_complaints`, but Topic 2 references none of them) | "S3 Handoff Chain" section, subsections "topic_1" and "topic_2". The topic_1 cell-34 banner is rewritten to drop the false kernel-handoff claim, and a new WRITE cell persists the DURABLE artifacts (`my_system_prompt`, `test_complaints`, routing categories) to `barclays-course/topic_1/triage_config.json`. topic_2 gains a LOAD cell that reads them back AND a downstream-wiring change (cell 7 uses `test_complaints[0]` as its tokenization input) so the artifacts are genuinely used. The OpenAI `client` is handled honestly: it is a live connection, cannot be serialised, and is not carried; it is recreated from the API key with `getpass` in any notebook that needs it (see "Honest note on non-serialisable objects (C1)"). |
+| C2 (the whole required path restarts state per notebook instead of extending one running Barclays system) | The entire "S3 Handoff Chain" section. Every required notebook ends with a WRITE cell and (topics 2-7) starts with a LOAD cell, chained topic_1 -> topic_7 through `s3://<bucket>/barclays-course/topic_<N>/`. Each LOAD cell genuinely feeds downstream cells (corpus -> tokenization, labelled dataset -> fine-tuning, model pointers -> comparison and adaptation), so the course is one artifact lineage in S3, robust to kernel restarts. The "Handoff chain summary table" lists every link. |
+| C3 (mini-lesson placement risk: orphaned references to optional topics must be removed and the mini-lessons must land BEFORE the first such reference) | Verified below. All orphaned references are scheduled for removal by existing edits, and both mini-lessons land before the first reference they replace. |
+
+### C3 verification - orphaned references and mini-lesson ordering
+
+Codex C3 named two orphaned-reference sites. Both are covered by existing edits in this
+doc, and the cell indices were re-checked against the notebooks at commit 13187c0:
+
+1. **topic_3 cell ~14, "In Topic 4 you assembled a Transformer".** The actual location
+   is topic_3 **cell 0**, the "What you will build today" opening paragraph, whose
+   first sentence reads "In Topic 4 you assembled a Transformer encoder-decoder from
+   scratch...". This is removed by **Edit 3.1**, which rewrites cell 0 to "In Topic 2
+   you learned what a transformer is..." and points the from-scratch build at the
+   optional notebook. Codex's "cell ~14" was approximate; the grep target string lives
+   in cell 0. Edit 3.1 fires on the exact OLD string, so it is correctly scheduled.
+   Ordering: the R7 transformer mini-lesson is inserted in **topic_2 after cell 36**,
+   which is an EARLIER notebook than topic_3. Any reference in topic_3 therefore comes
+   after the mini-lesson the student has already seen. No mis-ordering.
+
+2. **topic_6 cells 13 / 148 / 263 / 296 / 346, "recall LoRA from Topic 7a".** The
+   topic_6 notebook at commit 13187c0 has 55 cells (0-54), so the literal indices
+   148/263/296/346 do not exist; Codex was working from a stale or pre-split cell
+   numbering. The ACTUAL "Topic 7a" / "7a" orphaned references in topic_6 are in cells
+   **0, 5, 8, 9, 11** and the capstone recap cells **52, 54**. Every one of them is
+   already scheduled for removal:
+   - cell 0 -> **Edit 6.1** (rewrites the "In Topic 7a you built LoRA from scratch"
+     opening).
+   - cell 5 -> **Edit 6.3** (replaces "Recall from Topic 7a... carried forward from 7a").
+   - cell 8 -> **Edit 6.4** (replaces "In Topic 7a you implemented LoRA by hand").
+   - cell 9 -> **Edit 6.5** (replaces the `NaiveLoraLinear` docstring "from Topic 7a"
+     and the "This is what we did in 7a" comment).
+   - cell 11 -> **Edit 6.6** (replaces "the entire manual injection from Topic 7a" and
+     "rank from Topic 7a").
+   - cell 52 -> **Edit 6.8** (rewrites the capstone "Situation" paragraph listing
+     "LoRA from scratch (T7a)").
+   - cell 54 -> **Edit 6.9** (rebuilds the "Day 2 Complete" recap table, removing the
+     "T7a LoRA from scratch" row).
+   No orphaned "7a" reference in topic_6 is left unscheduled. Codex's specific cell
+   indices were stale, but the editing agent must match on the quoted OLD strings (as
+   every Edit 6.x instructs), so the wrong indices cause no miss.
+   Ordering: the R8 LoRA mini-lesson is inserted in **topic_6 after cell 5**. The first
+   orphaned reference that the mini-lesson is meant to replace conceptually is in cell 8
+   ("From the mini-lesson above, LoRA looks like this", per Edit 6.4) - which is AFTER
+   cell 5, so the mini-lesson lands before it. The cell-0 opening (Edit 6.1) and the
+   cell-5 setup (Edit 6.3) come BEFORE the mini-lesson, but both are rewritten to
+   ANNOUNCE the mini-lesson ("a short mini-lesson below explains the mechanics" /
+   "the mini-lesson below explains rank, alpha, and dropout") rather than to teach or
+   assume the content - so they are forward references to the mini-lesson, not orphaned
+   backward references. This is correct: a student reads cell 0, then cell 5, then the
+   mini-lesson (cells A-C after cell 5), then cell 8 which builds on it. No teaching
+   content is needed before the mini-lesson; every cell before it only points forward.
+
+C3 ordering rule satisfied: the R7 mini-lesson is in topic_2 (before all of topic_3-7),
+and the R8 mini-lesson is in topic_6 after cell 5, before the first cell (cell 8) that
+relies on its content. No edit is missing and no edit is mis-ordered. No additional
+edits are required for C3 beyond those already specified as Edits 3.1 and 6.1-6.9.
+
+### S3 handoff DECISION resolved
+
+The Round 3 DECISION ("cross-notebook handoff is done via S3, not kernel variables")
+is implemented in full by the "S3 Handoff Chain" section: the course-wide key layout
+(`s3://<bucket>/barclays-course/topic_<N>/<artifact>`), the per-topic LOADS and
+PRODUCES, the exact LOAD and WRITE cell content with built-in fallbacks, and the
+per-notebook narrative line. topic_1 has a WRITE cell only (no predecessor). The
+"S3 Handoff Chain" section is self-contained and implementable by a notebook-build
+agent without re-deriving anything.
