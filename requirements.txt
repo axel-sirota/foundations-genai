@@ -18,3 +18,5 @@ textblob
 gensim
 pytorch-nlp
 swifter
+nbformat>=5.10
+pyflakes>=3.4
