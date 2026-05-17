@@ -52,6 +52,20 @@ states:
     marker_required: "verify-research-{slug}.done"
     side_channel: false
 
+  # Rework mode: apply a plans/refactor/ design doc to an EXISTING notebook
+  # instead of building from scratch. Entered when /build-topic-notebook is
+  # invoked with --base-from + --design-doc. The design doc has already been
+  # through Codex adversarial review, so there is no research precondition.
+  # Writes build-{slug}.done so validate-notebooks -> build-diagrams continues
+  # unchanged.
+  rework:
+    next: validate-notebooks
+    next_command: "/validate-notebooks {slug}"
+    description: "Apply a plans/refactor/ design doc to an existing notebook (copy-and-edit)"
+    marker_written: "build-{slug}.done"
+    marker_required: null
+    side_channel: false
+
   validate-notebooks:
     next: build-diagrams
     next_command: "/build-diagrams {slug}"

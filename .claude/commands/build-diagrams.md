@@ -24,11 +24,25 @@ This command runs AFTER `/run-research-topic N` has produced the plan and AFTER 
 
 It reads the diagram index from the plan file, builds each Mermaid diagram one at a time into `plans/topic_<N>/diagrams/<slug>.mmd`, and asks for approval between each one.
 
+### REWORK MODE (--base-from and --design-doc present)
+
+If invoked with `--base-from <notebook.ipynb> --design-doc plans/refactor/<doc>.md`,
+there is NO research plan file. In rework mode:
+
+- Skip reading `plans/topic_<N>_<slug>.md`.
+- Get the diagram list directly from the notebook: scan the `--base-from`
+  notebook for every `<!-- DIAGRAM: ... -->` placeholder and the `[View
+  diagram: ...](../../plans/<topic>/diagrams/<slug>.mmd)` link beside it. That
+  link path IS the target `.mmd` path and slug.
+- The `--design-doc` gives the surrounding pedagogical context for each diagram.
+- Everything else (one diagram at a time, approval between each, the .mmd
+  output location) is UNCHANGED.
+
 ---
 
 ## Step 1: Read Context
 
-1. Read `plans/topic_<N>_<slug>.md` - find the diagram index section (all entries with "Diagram slug:", "Diagram path:", "Description:")
+1. Default mode: read `plans/topic_<N>_<slug>.md` - find the diagram index section (all entries with "Diagram slug:", "Diagram path:", "Description:"). Rework mode: collect the diagram list from the notebook's `<!-- DIAGRAM: -->` placeholders and their `[View diagram](...)` link paths instead.
 2. Read the relevant notebook cells that reference each diagram to understand the exact context each diagram needs to serve
 
 ---

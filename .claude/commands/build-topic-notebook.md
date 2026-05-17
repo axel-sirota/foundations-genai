@@ -24,11 +24,59 @@ If it exists, read the full file. Use it to inform: the capstone scenario woven 
 
 ## Command Arguments
 
-This command takes ONE argument: the topic number (e.g., `4`)
+Default (BUILD) mode takes ONE argument: the topic number (e.g., `4`).
+Example: `/build-topic-notebook 4`
 
-Example usage: `/build-topic-notebook 4`
+REWORK mode takes the topic number plus two flags:
+`/build-topic-notebook <N> --base-from <existing-notebook.ipynb> --design-doc plans/refactor/<doc>.md`
 
 The environment is always **sagemaker** for this course. Do not ask.
+
+---
+
+## REWORK MODE (when --base-from and --design-doc are present)
+
+If BOTH `--base-from` and `--design-doc` are passed, you are NOT building from
+scratch. You are applying a reviewed design doc to an EXISTING notebook. The
+pipeline gate routes this through the `rework` state (no research precondition).
+
+### What changes vs default mode
+
+- DO NOT create an empty notebook skeleton.
+- DO NOT read `plans/topic_<N>_<slug>.md` (the research plan). Read the
+  `--design-doc` file instead - it is a cell-by-cell rework spec under
+  `plans/refactor/`.
+- The Exercises notebook is the `--base-from` path. The Solutions twin is the
+  same relative path under `Solutions/` (the design doc names it explicitly).
+
+### Rework procedure
+
+1. Read the `--design-doc` file FULLY. It lists cell-by-cell actions:
+   KEEP / EDIT / NEW / DELETE / MERGE, with quoted OLD text and NEW text.
+2. Copy the base notebook to the target Exercises path if not already there;
+   copy the Solutions twin to the target Solutions path.
+3. Apply the design doc's actions to the COPY, in order:
+   - EDIT: match the doc's quoted OLD text exactly, replace with NEW text.
+   - NEW: insert the new cell at the position the doc specifies.
+   - DELETE / MERGE: per the doc.
+   - KEEP: leave the cell untouched.
+4. For NEW cells, the four-beat arc, lab tiers, STAR framing, AI-tells rule,
+   and `<!-- DIAGRAM: -->` placeholder convention below ALL still apply.
+5. Apply the doc's "Solutions twin" instructions to the Solutions copy
+   (lab cells filled in, safety-net cells handled per the doc).
+
+### What is UNCHANGED in rework mode
+
+- The 5-edits-per-batch approval checkpoints (count an EDIT/NEW/DELETE as one).
+- `validate_notebooks.py` between batches.
+- `/save-state` at every 10-cell boundary.
+- The cell_id verification snippet before EVERY NotebookEdit.
+- The AI-tells scan and final pair validation.
+- Marker: rework mode writes `build-{slug}.done` (same as default mode), so
+  `/validate-notebooks` -> `/build-diagrams` continues normally.
+
+Then skip to "Notebook Structure" only for the rules that govern NEW cells;
+ignore the empty-skeleton / from-scratch build steps.
 
 ---
 
