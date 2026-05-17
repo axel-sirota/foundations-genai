@@ -18,9 +18,13 @@ Run comprehensive validation on exercise and/or solution notebooks.
 ### Solution notebooks
 - No `= None  # YOUR CODE` remaining in any lab cell
 - Solution cells have complete implementations with explanation comments
-- Safety-net cells are REMOVED (they exist in exercise, not solution)
+- Safety-net cells are KEPT in place (they maintain cell-count parity with the
+  exercise; in the solution they never fire because the lab cell above is
+  already complete). Per CLAUDE.md: do NOT delete safety-net cells from the
+  solution. Removing them shifts downstream cell positions and breaks the pair
+  validator.
 - Solution is structurally a copy of the exercise with lab cells filled in
-- Cell count matches exercise (minus removed safety-net cells)
+- Cell count matches the exercise exactly (safety-net cells are kept, not removed)
 
 ### Both notebooks
 - Cell order is correct (cell IDs chain correctly)
