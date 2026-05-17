@@ -1,8 +1,10 @@
 """
-train.py - Full fine-tuning of distilbert-base-uncased for complaint sentiment
-classification. Runs as a SageMaker HuggingFace estimator GPU job on ml.g4dn.xlarge.
+train.py - Full fine-tuning of distilbert-base-uncased for Barclays complaint
+routing. Runs as a SageMaker HuggingFace estimator GPU job on ml.g4dn.xlarge.
 
-Task: binary classification (0 = negative/complaint, 1 = positive/resolved).
+Task: 4-class routing classification. The four Barclays routing categories are
+0 = fraud and security, 1 = billing and charges, 2 = account access,
+3 = general enquiry. This matches the labelled_dataset.json produced in Topic 3.
 Dataset: synthetic Barclays complaint data (generated inline).
 Target: approximately 15 min on ml.g4dn.xlarge (NVIDIA T4 16 GB).
 
@@ -35,7 +37,7 @@ from transformers import (
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", type=str, default="distilbert-base-uncased")
-    parser.add_argument("--num_labels", type=int, default=2)
+    parser.add_argument("--num_labels", type=int, default=4)
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=2e-5)
@@ -56,57 +58,71 @@ def set_seeds(seed):
         torch.cuda.manual_seed_all(seed)
 
 
-POSITIVE_TEXTS = [
-    "My issue was resolved quickly by the support team, very happy.",
-    "The agent was helpful and processed my refund without delay.",
-    "Great service, they fixed the unauthorised charge immediately.",
-    "Quick resolution to my dispute, I am satisfied with the outcome.",
-    "The fraud alert was handled professionally and my account is safe.",
-    "Excellent communication throughout the complaint process.",
-    "My account was restored promptly after the error was identified.",
-    "Very pleased with how the branch manager handled my concern.",
-    "The team followed up as promised and my issue is fully resolved.",
-    "Smooth experience from start to finish, no further problems.",
-    "Agent was courteous and resolved the billing error in one call.",
-    "I received my refund within 3 business days as stated.",
-    "Password reset was straightforward and staff were helpful.",
-    "The escalation team handled my case with professionalism.",
-    "Transaction dispute was resolved in my favour, very thankful.",
-    "Online banking issue was fixed after one chat session.",
-    "Customer service exceeded my expectations on this occasion.",
-    "Fraud team acted swiftly and reimbursed the stolen funds.",
-    "My mortgage query was answered thoroughly and clearly.",
-    "Very impressed with the speed of response to my complaint.",
+# Four Barclays routing categories, matching Topic 3's label_map:
+#   0 = fraud and security, 1 = billing and charges,
+#   2 = account access,     3 = general enquiry
+FRAUD_TEXTS = [
+    "Unauthorised charge appeared on my account and no one is helping.",
+    "I think my card has been cloned, there are payments I never made.",
+    "Someone used my account details to set up a payment to a stranger.",
+    "There is a suspicious transaction from another country on my statement.",
+    "My card was used for a purchase I did not authorise.",
+    "I received a scam text pretending to be Barclays asking for my PIN.",
+    "Money was taken from my account by a merchant I have never dealt with.",
+    "I reported fraud last week and the stolen funds are still not back.",
+    "A direct debit I never agreed to is taking money from my account.",
+    "My online banking shows logins from a device that is not mine.",
 ]
 
-NEGATIVE_TEXTS = [
-    "Unauthorised charge appeared on my account and no one is helping.",
-    "I have been waiting 3 weeks for a refund with no update.",
-    "My card was blocked without warning and I cannot access my funds.",
-    "Spoke to 4 different agents and still no resolution to my dispute.",
-    "Fraud on my account went undetected for weeks, very disappointed.",
-    "The branch told me one thing and online support said another.",
-    "My complaint has been escalated twice and nothing has changed.",
-    "Charged twice for the same transaction and I want my money back.",
-    "Online banking keeps logging me out and losing my transfers.",
-    "Nobody follows up when they say they will, terrible service.",
-    "I am furious about the hidden fee that was never disclosed.",
-    "Three weeks and my account is still frozen, this is unacceptable.",
-    "The complaint team is impossible to reach and never returns calls.",
-    "My direct debit was cancelled without any notification from Barclays.",
-    "I was transferred to 5 departments and nobody could help me.",
-    "Still waiting for my replacement card after reporting it stolen.",
-    "The interest charge was applied incorrectly and it has not been fixed.",
-    "I feel ignored and my issue has been dragging on for months.",
-    "Terrible experience at the branch, staff were dismissive.",
-    "My savings account was closed without any explanation.",
+BILLING_TEXTS = [
+    "You charged me an overdraft fee I did not expect this month.",
+    "I was charged twice for the same transaction and want a refund.",
+    "The interest charge on my statement was applied incorrectly.",
+    "There is a hidden fee on my account that was never disclosed.",
+    "My monthly account fee went up without any notification.",
+    "I was billed a late payment charge even though I paid on time.",
+    "The foreign transaction fee seems much higher than advertised.",
+    "A service charge appeared that I do not understand at all.",
+    "I am being charged for a packaged account I asked to close.",
+    "The refund I was promised has not been credited to my balance.",
 ]
+
+ACCESS_TEXTS = [
+    "I cannot log in to the mobile app, it keeps rejecting my password.",
+    "My card was blocked without warning and I cannot access my funds.",
+    "Online banking keeps logging me out before I can finish a transfer.",
+    "I am locked out of my account and the reset link does not work.",
+    "The app will not accept my new passcode after I changed it.",
+    "I cannot access my account because the security questions failed.",
+    "My replacement card has not arrived and I cannot withdraw money.",
+    "Two-factor authentication is not sending me the verification code.",
+    "I forgot my membership number and cannot get into online banking.",
+    "The website says my account is suspended but I do not know why.",
+]
+
+GENERAL_TEXTS = [
+    "What are your branch opening hours over the bank holiday weekend?",
+    "Can you tell me how to set up a standing order from my account?",
+    "I would like to know the current interest rate on a savings account.",
+    "How do I update the postal address on my account?",
+    "What documents do I need to open a joint account with my partner?",
+    "Is there a mobile app feature to freeze my card temporarily?",
+    "How long does an international transfer usually take to arrive?",
+    "Can I order a paper statement instead of the digital one?",
+    "What is the daily limit for cash withdrawals at an ATM?",
+    "How do I add a new payee to my online banking?",
+]
+
+CATEGORY_TEXTS = [FRAUD_TEXTS, BILLING_TEXTS, ACCESS_TEXTS, GENERAL_TEXTS]
 
 
 def make_dataset(n_train=800, n_val=200, seed=42):
     rng = random.Random(seed)
-    all_texts = POSITIVE_TEXTS * 20 + NEGATIVE_TEXTS * 20
-    all_labels = [1] * (len(POSITIVE_TEXTS) * 20) + [0] * (len(NEGATIVE_TEXTS) * 20)
+    all_texts = []
+    all_labels = []
+    for label, texts in enumerate(CATEGORY_TEXTS):
+        all_texts.extend(texts * 20)
+        all_labels.extend([label] * (len(texts) * 20))
     combined = list(zip(all_texts, all_labels))
     rng.shuffle(combined)
     train_data = combined[:n_train]
