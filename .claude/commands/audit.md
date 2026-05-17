@@ -159,3 +159,13 @@ Save the report to `plans/AUDIT_[TOPIC].md`.
 - Report every failure with the specific section or line reference
 - Do NOT auto-fix anything — this command is read-only
 - If a fix is needed, the fix must go through a dedicated fix agent or `/fixes`
+
+---
+
+## Notebook Edit Protocol (awareness)
+
+If this skill ends up editing notebook cells (not just reading them), follow
+the canonical procedure in `~/.claude/NOTEBOOK_EDIT_PROTOCOL.md`: normalize
+cell ids, size-gate the mechanism, locate cells by id + content, read back and
+assert after every edit, and run the structural + static code gates. Blind
+bulk index-based rewrites are forbidden.

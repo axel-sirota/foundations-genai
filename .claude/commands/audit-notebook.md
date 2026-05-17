@@ -186,3 +186,13 @@ Save the report to `plans/VERIFY_[TOPIC].md`.
 - Report every failure with the specific cell ID
 - Do NOT auto-fix anything — this command is read-only
 - NEVER delete a cell — fixing means replace content or insert, never delete
+
+---
+
+## Notebook Edit Protocol (awareness)
+
+If this skill ends up editing notebook cells (not just reading them), follow
+the canonical procedure in `~/.claude/NOTEBOOK_EDIT_PROTOCOL.md`: normalize
+cell ids, size-gate the mechanism, locate cells by id + content, read back and
+assert after every edit, and run the structural + static code gates. Blind
+bulk index-based rewrites are forbidden.

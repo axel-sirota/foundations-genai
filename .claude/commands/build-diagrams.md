@@ -154,3 +154,23 @@ After all diagrams are built:
 > Notebook links verified: yes / no (if no, list which cells still need fixing)
 >
 > Next step: open the notebooks in JupyterLab and confirm the diagram links resolve, or run `/validate-notebooks` to check overall notebook health.
+
+---
+
+## Notebook Edit Protocol (MANDATORY)
+
+This skill edits Jupyter notebook cells. Before any cell edit, insert, or
+delete, you MUST follow the canonical procedure in
+`~/.claude/NOTEBOOK_EDIT_PROTOCOL.md`. In short:
+
+- Normalize cell ids first (`nbformat.normalize`) so every cell has an id.
+- Pick the mechanism by size: `NotebookEdit` only if the notebook fits the
+  Read limit (~25k tokens); otherwise a targeted, audited in-place JSON edit.
+- Locate every cell by id AND by asserting its current content.
+- Control insert position explicitly - never trust append/insert order.
+- After every edit: read back from disk and assert the cell content.
+- Run the structural gate (`nbformat.validate`) and the static code gate
+  (`ast.parse` + `pyflakes` on all code cells concatenated in order).
+
+Blind bulk scripts that rewrite cells by index are forbidden. Read the full
+protocol file before editing.

@@ -204,3 +204,13 @@ Or:
 
 > N checks failed. Fix the issues above before running `/build-topic-notebook N`.
 > Use `/fixes` to log and resolve any notebook issues once they are built.
+
+---
+
+## Notebook Edit Protocol (awareness)
+
+If this skill ends up editing notebook cells (not just reading them), follow
+the canonical procedure in `~/.claude/NOTEBOOK_EDIT_PROTOCOL.md`: normalize
+cell ids, size-gate the mechanism, locate cells by id + content, read back and
+assert after every edit, and run the structural + static code gates. Blind
+bulk index-based rewrites are forbidden.

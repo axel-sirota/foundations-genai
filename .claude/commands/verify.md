@@ -112,3 +112,13 @@ Based on results:
 - Do not auto-fix anything - this command is read-only; it reports, never edits
 - NEVER delete a cell. This command only reads and reports. If a fix is needed, use /fixes.
   /fixes must also never delete - only replace content or insert. Ask Axel before any deletion.
+
+---
+
+## Notebook Edit Protocol (awareness)
+
+If this skill ends up editing notebook cells (not just reading them), follow
+the canonical procedure in `~/.claude/NOTEBOOK_EDIT_PROTOCOL.md`: normalize
+cell ids, size-gate the mechanism, locate cells by id + content, read back and
+assert after every edit, and run the structural + static code gates. Blind
+bulk index-based rewrites are forbidden.
