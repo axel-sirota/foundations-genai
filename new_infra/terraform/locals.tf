@@ -39,4 +39,10 @@ locals {
     genai_devs = local.bucket_genai_devs
     scratch    = local.bucket_scratch
   }
+
+  # The SageMaker DEFAULT bucket sagemaker-<region>-<account>. This is the bucket the course
+  # notebooks ACTUALLY chain artifacts through (sagemaker.Session().default_bucket()), and the
+  # bucket estimator.fit()/.deploy() read/write. It already exists. (Found by /research over
+  # the notebooks: NONE reference the barclays-* buckets; ALL use this one.)
+  sagemaker_default_bucket = "sagemaker-${local.region}-${local.account_id}"
 }
