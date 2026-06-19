@@ -21,6 +21,23 @@ resource "aws_sagemaker_user_profile" "participant" {
   user_settings {
     execution_role = data.aws_iam_role.student_exec.arn
   }
+
+  # The 14 imported profiles carry extra Studio settings (JupyterLab idle-timeout, Canvas,
+  # hidden app types, etc.) that this minimal resource does not declare. We manage ONLY the
+  # execution_role; ignore the rest so TF does not strip those settings on every apply (keeps
+  # the plan idempotent and preserves the existing Studio UX). The 11 new profiles simply
+  # never have these blocks, so ignoring them is a no-op there.
+  lifecycle {
+    ignore_changes = [
+      user_settings[0].canvas_app_settings,
+      user_settings[0].jupyter_lab_app_settings,
+      user_settings[0].code_editor_app_settings,
+      user_settings[0].r_studio_server_pro_app_settings,
+      user_settings[0].studio_web_portal_settings,
+      user_settings[0].space_storage_settings,
+      user_settings[0].auto_mount_home_efs,
+    ]
+  }
 }
 
 # Import the 14 already-existing profiles by full ARN so TF adopts + converges them.
