@@ -1,28 +1,70 @@
-# w2-i1 (revised per /research) — the participant gap policy.
+# w2-i1 — participant policy, 100% aligned with the spec doc's "barclays-students" policy
+# (Section 5), plus the one addition /research proved the notebooks need (the SageMaker
+# default bucket, which the spec omits but every notebook chains through).
 #
-# The Barclays groups already carry AmazonSageMakerFullAccess, which covers sagemaker:*
-# (CreateTrainingJob/CreateModel/CreateEndpoint/InvokeEndpoint/CreatePresignedDomainUrl/
-# CreateApp/CreateSpace/Describe*/List* — everything fit()/deploy()/Studio-launch need on the
-# sagemaker namespace). It does NOT cover four things the labs require. This ADDITIVE policy
-# fills exactly those gaps + the S3 the course actually uses. Over-scope is fine; this targets
-# only the real under-scope.
+# Structural divergences from the spec are RATIFIED and intentional (live reality the April
+# spec predates): region us-west-2, bucket names datacouch-*-usw2, participant-NN identities,
+# and attaching to the existing Barclays cohort GROUPS instead of a "barclays-students" group
+# that does not exist. The POLICY CONTENT below mirrors the spec Sid-for-Sid.
 #
-# Evidence (/research over every executed code cell in the Solution notebooks):
-#   - topics 4,5,6,7 + optional run estimator.fit() = real CreateTrainingJob (needs PassRole,
-#     ECR pull, the exec role does the S3/logs/metrics).
-#   - topics 5,7 run .deploy() = CreateModel + CreateEndpoint (needs PassRole).
-#   - EVERY topic chains artifacts through sagemaker.Session().default_bucket() =
-#     sagemaker-us-west-2-<acct> (NOT the barclays-* buckets).
-#   - notebooks read CloudWatch /aws/sagemaker/TrainingJobs logs + call sts:GetCallerIdentity.
+# Over-scope is fine; this restores every spec Sid (Bedrock, IAM self-inspection, service
+# quotas, ecr-public, logs write) even where the current required notebooks don't exercise
+# them -- the spec includes them as headroom + for the lab-0 sanity checks.
 #
 # HARD INVARIANT (B6 + B10): brand-new standalone policy attached to the Barclays GROUPS.
 # The shared BreadAcademyStudentPolicy / bread-academy-students group is NEVER touched.
 
-data "aws_iam_policy_document" "participant_gaps" {
+data "aws_iam_policy_document" "participant" {
 
-  # --- Gap 1: PassRole to the SageMaker exec role (fit/deploy require it; FullAccess omits it).
+  # Spec Sid: SageMakerStudioAccess -- open Studio + manage apps/spaces.
   statement {
-    sid       = "PassExecRoleToSageMaker"
+    sid    = "SageMakerStudioAccess"
+    effect = "Allow"
+    actions = [
+      "sagemaker:CreatePresignedDomainUrl",
+      "sagemaker:DescribeDomain",
+      "sagemaker:DescribeUserProfile",
+      "sagemaker:ListApps",
+      "sagemaker:CreateApp",
+      "sagemaker:DeleteApp",
+      "sagemaker:DescribeApp",
+      "sagemaker:CreateSpace",
+      "sagemaker:UpdateSpace",
+      "sagemaker:DeleteSpace",
+      "sagemaker:DescribeSpace",
+      "sagemaker:ListSpaces",
+    ]
+    resources = ["*"]
+  }
+
+  # Spec Sid: SageMakerTrainingAndInferenceJustInCase -- fit()/deploy() + endpoints.
+  statement {
+    sid    = "SageMakerTrainingAndInferenceJustInCase"
+    effect = "Allow"
+    actions = [
+      "sagemaker:CreateTrainingJob",
+      "sagemaker:DescribeTrainingJob",
+      "sagemaker:StopTrainingJob",
+      "sagemaker:ListTrainingJobs",
+      "sagemaker:CreateProcessingJob",
+      "sagemaker:DescribeProcessingJob",
+      "sagemaker:StopProcessingJob",
+      "sagemaker:CreateModel",
+      "sagemaker:CreateEndpoint",
+      "sagemaker:CreateEndpointConfig",
+      "sagemaker:InvokeEndpoint",
+      "sagemaker:DeleteEndpoint",
+      "sagemaker:DeleteEndpointConfig",
+      "sagemaker:DeleteModel",
+      "sagemaker:DescribeEndpoint",
+      "sagemaker:ListEndpoints",
+    ]
+    resources = ["*"]
+  }
+
+  # Spec Sid: PassRoleToSageMaker.
+  statement {
+    sid       = "PassRoleToSageMaker"
     effect    = "Allow"
     actions   = ["iam:PassRole"]
     resources = [data.aws_iam_role.student_exec.arn]
@@ -33,9 +75,35 @@ data "aws_iam_policy_document" "participant_gaps" {
     }
   }
 
-  # --- Gap 2: S3 on the SageMaker DEFAULT bucket (the real artifact chain).
+  # Spec Sid: S3DatasetsRead (the 2 dataset buckets, RO).
   statement {
-    sid    = "SageMakerDefaultBucketRW"
+    sid     = "S3DatasetsRead"
+    effect  = "Allow"
+    actions = ["s3:GetObject", "s3:ListBucket"]
+    resources = flatten([
+      for k in ["prompt_eng", "genai_devs"] : [
+        aws_s3_bucket.this[k].arn,
+        "${aws_s3_bucket.this[k].arn}/*",
+      ]
+    ])
+  }
+
+  # Spec Sid: S3ScratchBucketReadWrite (scratch, RW).
+  statement {
+    sid     = "S3ScratchBucketReadWrite"
+    effect  = "Allow"
+    actions = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"]
+    resources = [
+      aws_s3_bucket.this["scratch"].arn,
+      "${aws_s3_bucket.this["scratch"].arn}/*",
+    ]
+  }
+
+  # ADDITION (not in spec, found by /research): the SageMaker DEFAULT bucket
+  # sagemaker-<region>-<account>. Every notebook chains artifacts through
+  # sagemaker.Session().default_bucket(); estimator.fit()/.deploy() read/write it.
+  statement {
+    sid    = "SageMakerDefaultBucketReadWrite"
     effect = "Allow"
     actions = [
       "s3:GetObject", "s3:PutObject", "s3:DeleteObject",
@@ -47,66 +115,73 @@ data "aws_iam_policy_document" "participant_gaps" {
     ]
   }
 
-  # --- Gap 2b: S3 on the barclays-* dataset buckets (RO) + scratch (RW). Datasets the
-  #     instructor populates live here; kept per decision. Notebooks may read them too.
+  # Spec Sid: ECRReadForDeepLearningContainers (incl. ecr-public).
   statement {
-    sid     = "BarclaysDatasetsRead"
-    effect  = "Allow"
-    actions = ["s3:GetObject", "s3:ListBucket", "s3:GetBucketLocation"]
-    resources = flatten([
-      for k in ["prompt_eng", "genai_devs"] : [
-        aws_s3_bucket.this[k].arn,
-        "${aws_s3_bucket.this[k].arn}/*",
-      ]
-    ])
-  }
-  statement {
-    sid     = "BarclaysScratchReadWrite"
-    effect  = "Allow"
-    actions = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"]
-    resources = [
-      aws_s3_bucket.this["scratch"].arn,
-      "${aws_s3_bucket.this["scratch"].arn}/*",
-    ]
-  }
-
-  # --- Gap 3: ECR pull (the HuggingFace/PyTorch DLC images training jobs use).
-  statement {
-    sid    = "ECRPullDeepLearningContainers"
+    sid    = "ECRReadForDeepLearningContainers"
     effect = "Allow"
     actions = [
       "ecr:GetAuthorizationToken",
       "ecr:BatchCheckLayerAvailability",
       "ecr:GetDownloadUrlForLayer",
       "ecr:BatchGetImage",
+      "ecr-public:GetAuthorizationToken",
+      "ecr-public:BatchCheckLayerAvailability",
+      "ecr-public:GetDownloadUrlForLayer",
+      "ecr-public:BatchGetImage",
     ]
-    resources = ["*"] # GetAuthorizationToken requires * ; layer reads are cross-account DLC repos
+    resources = ["*"]
   }
 
-  # --- Gap 4: CloudWatch Logs read for training-job logs (the notebooks fetch these).
-  # Needs the log-GROUP ARN (DescribeLogStreams/FilterLogEvents) AND the log-STREAM ARN
-  # (GetLogEvents reads individual streams). DescribeLogGroups is account-level (resource *).
+  # Spec Sid: CloudWatchLogsForTrainingJobs (write + read).
   statement {
-    sid    = "TrainingJobLogGroups"
+    sid    = "CloudWatchLogsForTrainingJobs"
     effect = "Allow"
     actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
       "logs:DescribeLogStreams",
-      "logs:FilterLogEvents",
       "logs:GetLogEvents",
     ]
-    resources = [
-      "arn:aws:logs:${local.region}:${local.account_id}:log-group:/aws/sagemaker/*",
-      "arn:aws:logs:${local.region}:${local.account_id}:log-group:/aws/sagemaker/*:log-stream:*",
-    ]
-  }
-  statement {
-    sid       = "TrainingJobDescribeLogGroups"
-    effect    = "Allow"
-    actions   = ["logs:DescribeLogGroups"]
-    resources = ["*"] # DescribeLogGroups does not support resource-level scoping
+    resources = ["arn:aws:logs:*:*:log-group:/aws/sagemaker/*"]
   }
 
-  # --- sts:GetCallerIdentity (lab-0 sanity check). Allowed to all by default, but explicit.
+  # Spec Sid: BedrockInvokeOptional.
+  statement {
+    sid    = "BedrockInvokeOptional"
+    effect = "Allow"
+    actions = [
+      "bedrock:InvokeModel",
+      "bedrock:InvokeModelWithResponseStream",
+      "bedrock:ListFoundationModels",
+    ]
+    resources = ["*"]
+  }
+
+  # Spec Sid: IAMSelfInspection (scoped to the calling user).
+  statement {
+    sid    = "IAMSelfInspection"
+    effect = "Allow"
+    actions = [
+      "iam:GetUser",
+      "iam:ListAttachedUserPolicies",
+      "iam:ListGroupsForUser",
+    ]
+    resources = ["arn:aws:iam::*:user/$${aws:username}"]
+  }
+
+  # Spec Sid: ServiceQuotasRead.
+  statement {
+    sid    = "ServiceQuotasRead"
+    effect = "Allow"
+    actions = [
+      "servicequotas:ListServiceQuotas",
+      "servicequotas:GetServiceQuota",
+    ]
+    resources = ["*"]
+  }
+
+  # sts:GetCallerIdentity (lab-0 sanity check).
   statement {
     sid       = "StsIdentity"
     effect    = "Allow"
@@ -115,15 +190,15 @@ data "aws_iam_policy_document" "participant_gaps" {
   }
 }
 
-resource "aws_iam_policy" "participant_gaps" {
-  name        = "datacouch-barclays-participant-gaps-usw2"
-  description = "Barclays participants: the gaps AmazonSageMakerFullAccess misses (PassRole, S3 on SageMaker default + barclays buckets, ECR pull, training-job log read). Additive; does not touch shared policies."
-  policy      = data.aws_iam_policy_document.participant_gaps.json
+resource "aws_iam_policy" "participant" {
+  name        = "datacouch-barclays-students-usw2"
+  description = "Barclays participant policy (spec Section 5 barclays-students, verbatim) + the SageMaker default bucket the notebooks chain through. Additive; does not touch shared policies."
+  policy      = data.aws_iam_policy_document.participant.json
 }
 
 # Attach to both Barclays cohort GROUPS (survives participant-user churn). Additive only.
-resource "aws_iam_group_policy_attachment" "participant_gaps" {
+resource "aws_iam_group_policy_attachment" "participant" {
   for_each   = toset(local.barclays_groups)
   group      = each.value
-  policy_arn = aws_iam_policy.participant_gaps.arn
+  policy_arn = aws_iam_policy.participant.arn
 }
