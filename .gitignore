@@ -163,3 +163,12 @@ zips
 Demos
 student-environments
 *.zip
+
+# Old client (bread-financial / "Barclays") AWS environment investigation + snapshot.
+# Contains real AWS resource dumps and client data - never commit.
+old_infra/
+
+# Live AWS snapshot of the new Barclays env (us-west-2): IAM policy JSON, account/resource
+# IDs, participant ARNs. Real client config - never commit. (Docs + Terraform live elsewhere
+# under new_infra/ and ARE tracked.)
+new_infra/snapshot/

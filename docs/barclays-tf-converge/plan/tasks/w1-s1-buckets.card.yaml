@@ -1,0 +1,50 @@
+id: w1-s1-buckets
+title: "Create 3 us-west-2 buckets + versioning/public-block/SSE-S3/scratch-30d-lifecycle"
+type: feature
+priority: P0
+section: 01-s3-buckets
+files_touched:
+  - new_infra/terraform/s3.tf
+shared_resources: [s3]
+depends_on: [w1-f1-scaffold]
+wave: 1
+phase: schema   # PRODUCER: creates the bucket objects whose ARNs w2-i1 consumes
+dod_tests:
+  - "terraform plan: 3 aws_s3_bucket + config sub-resources to ADD, 0 destroy"
+  - "post-apply: aws s3api get-bucket-versioning == Enabled (all 3)"
+  - "post-apply: aws s3api get-bucket-encryption == AES256 (all 3)"
+  - "post-apply: scratch has 30-day expiration lifecycle rule"
+human_owner: axel
+tf_intents:
+  - object: aws_s3_bucket.datacouch-barclays-prompt-eng-usw2
+    operation: create_table   # (adapted: create_table == create a new top-level resource)
+    details: {region: us-west-2, access: read-only-datasets}
+  - object: aws_s3_bucket.datacouch-barclays-genai-devs-usw2
+    operation: create_table
+    details: {region: us-west-2, access: read-only-datasets}
+  - object: aws_s3_bucket.datacouch-barclays-scratch-usw2
+    operation: create_table
+    details: {region: us-west-2, access: read-write-scratch}
+  - object: aws_s3_bucket_versioning.* (x3)
+    operation: add
+    details: {status: Enabled}
+  - object: aws_s3_bucket_public_access_block.* (x3)
+    operation: add
+    details: {block_all: true}
+  - object: aws_s3_bucket_server_side_encryption_configuration.* (x3)
+    operation: add
+    details: {sse_algorithm: AES256}
+  - object: aws_s3_bucket_lifecycle_configuration.scratch
+    operation: add
+    details: {expire_days: 30, scope: scratch-only}
+collision_note: >
+  The bare names barclays-prompt-eng-data / -genai-devs-data / -training-scratch exist
+  GLOBALLY in ap-south-1 and are NOT ours. MUST use the datacouch-*-usw2 names or apply 409s.
+pre_apply_check:   # codex o3 blocker #2 — run BEFORE apply
+  - "aws s3api head-bucket --bucket datacouch-barclays-prompt-eng-usw2  (expect 404 = free)"
+  - "aws s3api head-bucket --bucket datacouch-barclays-genai-devs-usw2  (expect 404 = free)"
+  - "aws s3api head-bucket --bucket datacouch-barclays-scratch-usw2     (expect 404 = free)"
+  - "ABORT if any returns 200/403 (name taken globally) -> pick a new name."
+notes: >
+  B2+B3. Producer layer. ARNs (aws_s3_bucket.*.arn) are consumed by w2-i1. B4 population is
+  OUT of scope (separate aws s3 cp step).

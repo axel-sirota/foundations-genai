@@ -1,0 +1,39 @@
+id: w1-f1-scaffold
+title: "TF project skeleton + provider (us-west-2/datacouch) + locals + local backend"
+type: feature
+priority: P0
+section: 00-foundation
+files_touched:
+  - new_infra/terraform/versions.tf
+  - new_infra/terraform/providers.tf
+  - new_infra/terraform/locals.tf
+  - new_infra/terraform/backend.tf
+  - new_infra/terraform/.gitignore
+shared_resources: []
+depends_on: []
+wave: 1
+phase: schema   # producer: creates the project + locals everything else references
+dod_tests:
+  - "terraform -chdir=new_infra/terraform init  (exit 0)"
+  - "terraform -chdir=new_infra/terraform validate  (exit 0)"
+human_owner: axel
+tf_intents:
+  - object: provider.aws
+    operation: create
+    details: {region: us-west-2, profile: datacouch, version: "~> 5.0"}
+  - object: backend.local
+    operation: create
+    details: {state: new_infra/terraform/terraform.tfstate, gitignored: true}
+  - object: locals
+    operation: create
+    details:
+      account_id: "962804699607"
+      domain_id: "d-bquhieanzgod"
+      exec_role: "SageMakerStudentExecutionRole"
+      region: "us-west-2"
+      participants: "participant-01..participant-25"
+      missing_profiles: "03,04,05,10,13,16,17,18,22,23,24"
+      buckets: "datacouch-barclays-{prompt-eng,genai-devs,scratch}-usw2"
+notes: >
+  B1/B9/B11. No resources yet. Region + profile hardcoded to us-west-2/datacouch (B9).
+  Backend is local, state gitignored (B11). This is the root every other card builds on.

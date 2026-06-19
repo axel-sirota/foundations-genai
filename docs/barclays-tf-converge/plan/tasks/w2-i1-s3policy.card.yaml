@@ -1,0 +1,35 @@
+id: w2-i1-s3policy
+title: "New additive policy datacouch-barclays-s3-usw2 + attach to 25 participants"
+type: feature
+priority: P1
+section: 03-iam-s3-access
+files_touched:
+  - new_infra/terraform/iam_participant_s3.tf
+shared_resources: []
+depends_on: [w1-s1-buckets, w1-f2-datasources]
+wave: 2
+phase: consume   # CONSUMES the bucket ARNs created in w1-s1 + the participant user ARNs
+dod_tests:
+  - "terraform plan: 1 aws_iam_policy + 25 aws_iam_user_policy_attachment to ADD, 0 destroy"
+  - "post-apply: aws iam simulate-principal-policy participant-01 on the 3 new buckets == allowed (was implicitDeny)"
+human_owner: axel
+tf_intents:
+  - object: aws_iam_policy.barclays_s3_usw2
+    operation: create_table   # (adapted: new standalone managed policy)
+    details:
+      ro: "GetObject,ListBucket on prompt-eng + genai-devs (+/*)"
+      rw: "GetObject,PutObject,DeleteObject,ListBucket on scratch (+/*)"
+      resource_arns: "FROM aws_s3_bucket.*.arn (w1-s1) -- the consume edge"
+  - object: aws_iam_user_policy_attachment.participant[01..25]
+    operation: add
+    details: {for_each: 25 participant users (data.aws_iam_user), attach: barclays_s3_usw2}
+consume_edge: >
+  This card REFERENCES aws_s3_bucket.*.arn from w1-s1 (a producer in Wave 1). That is why it
+  is Wave 2: in a per-wave apply, the buckets must exist before this policy's ARNs resolve.
+  In a single full apply, TF's graph handles it -- but the wave split is intentional/safe.
+shared_invariant: >
+  BRAND-NEW standalone policy. The shared BreadAcademyStudentPolicy / bread-academy-students
+  group is NOT touched. Additive only -- no detach/remove of any existing attachment. (B6,B10)
+notes: >
+  B6. Closes the only under-scope (VM-side / IAM-user direct S3 to the new buckets). B7
+  (exec role already allowed) is confirm-only, no task.

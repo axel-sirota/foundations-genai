@@ -1,0 +1,12 @@
+# Terraform state + caches — never commit (contains account/resource detail).
+*.tfstate
+*.tfstate.*
+.terraform/
+crash.log
+# NOTE: .terraform.lock.hcl is intentionally COMMITTED (pins provider versions).
+# Plan files (per CLAUDE.md: -out to terraform_plans/<datetime>.tfplan).
+terraform_plans/*.tfplan
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

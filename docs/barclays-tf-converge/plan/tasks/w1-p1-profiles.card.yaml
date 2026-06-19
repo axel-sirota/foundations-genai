@@ -1,0 +1,39 @@
+id: w1-p1-profiles
+title: "25 participant SageMaker Studio user profiles (import 14 existing, create 11 missing)"
+type: feature
+priority: P0
+section: 02-sagemaker-profiles
+files_touched:
+  - new_infra/terraform/sagemaker_profiles.tf
+shared_resources: []
+depends_on: [w1-f2-datasources]
+wave: 1
+phase: consume   # consumes the EXISTING domain + exec role (data sources); creates NEW profiles
+dod_tests:
+  - "terraform plan: 11 aws_sagemaker_user_profile to ADD, 0 destroy/replace (14 imported = no-op)"
+  - "post-apply: aws sagemaker list-user-profiles shows participant-01..25 all InService"
+human_owner: axel
+tf_intents:
+  - object: aws_sagemaker_user_profile.participant[01..25]
+    operation: create_table   # (adapted: a new resource per participant via for_each)
+    details:
+      for_each: "participant-01..25"
+      domain_id: d-bquhieanzgod
+      execution_role: "data.aws_iam_role.exec.arn (existing shared role, referenced)"
+      create: "11 missing: 03,04,05,10,13,16,17,18,22,23,24"
+      import: "14 existing: 01,02,06,07,08,09,11,12,14,15,19,20,21,25 via <domain-id>/<name>"
+import_required:
+  - "the 14 EXISTING profiles must be terraform-imported (import{} blocks or import list) so"
+  - "TF adopts them; resource user_settings MUST match their real settings -> clean plan."
+pre_apply_check:   # codex o3 blocker #1 — run BEFORE apply
+  - "For each of the 14 existing profiles: aws sagemaker describe-user-profile --domain-id"
+  - "  d-bquhieanzgod --user-profile-name participant-NN  -> capture real user_settings."
+  - "Build the 14 import ids (d-bquhieanzgod/participant-NN) and confirm the resource block"
+  - "  user_settings MATCHES reality, so `terraform plan` shows the 14 as no-op (not replace)."
+  - "ABORT/reconcile if any imported profile shows a destroy/replace in the plan."
+shared_invariant: >
+  domain + exec role are referenced (data), NEVER recreated (B10). Only the 11 NEW profiles
+  are created; the 14 imported show no-change.
+notes: >
+  B5. Independent of the buckets -> fully parallel with w1-s1. The import is the risk: get
+  the 14's settings exactly right or the plan shows spurious in-place updates.
