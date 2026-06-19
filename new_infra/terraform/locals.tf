@@ -19,9 +19,12 @@ locals {
   missing_profiles  = [for n in local.missing_profile_nums : "participant-${n}"]
   all_participants  = [for n in local.participant_nums : "participant-${n}"]
 
-  # The two Barclays cohort IAM groups the additive S3 policy attaches to. Participants get
-  # added to these by whoever provisions the cohort; attaching to the GROUP (not users)
-  # survives the user churn we saw in this shared account.
+  # The Barclays cohort IAM groups the additive participant policy attaches to. Attaching to
+  # the GROUP (not users) survives user churn. Participants must be MEMBERS of one of these to
+  # inherit the policy. (A live impersonation test of participant-01 caught that the 3 real
+  # participants were parked in the dead bread-academy-students group instead of a Barclays
+  # group -> they get added to Barclays-batch-1 out-of-band; bread is dead so that group is
+  # not used for anything active.)
   barclays_groups = ["Barclays-batch-1", "Barclays_Batch-2"]
 
   # The 3 us-west-2 buckets (names are collision-safe; the bare barclays-* names are taken
