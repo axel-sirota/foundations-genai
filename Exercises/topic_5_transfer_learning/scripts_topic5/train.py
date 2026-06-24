@@ -73,9 +73,11 @@ def freeze_encoder(model):
       model.dropout        -> Dropout                        - TRAINABLE (no params)
     """
     frozen_count = 0
-    for param in model.distilbert.parameters():
-        param.requires_grad = False
-        frozen_count += param.numel()
+    # YOUR CODE: freeze the encoder. Loop over model.distilbert.parameters()
+    # and mark each one as non-trainable, then add param.numel() to frozen_count.
+    # The pre_classifier and classifier heads must stay trainable (do not touch them).
+    for param in []:  # YOUR CODE: iterate the encoder parameters
+        pass  # YOUR CODE: set this param to non-trainable, then count it
     trainable_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Frozen parameters:    {frozen_count:,}")
     print(f"Trainable parameters: {trainable_count:,}")
@@ -230,12 +232,10 @@ def main():
 
     print(f"\nLoading model: {args.model_name}")
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    model = AutoModelForSequenceClassification.from_pretrained(
-        args.model_name,
-        num_labels=NUM_LABELS,
-        id2label=LABEL_MAP,
-        label2id={v: k for k, v in LABEL_MAP.items()},
-    )
+    # YOUR CODE: load a sequence-classification model from args.model_name with
+    # NUM_LABELS outputs. Pass id2label=LABEL_MAP and label2id so predictions
+    # carry human-readable category names.
+    model = None  # YOUR CODE
 
     if args.freeze_encoder:
         print("\nApplying transfer learning: freezing encoder layers")
@@ -251,15 +251,17 @@ def main():
     )
     print(f"Train: {len(train_dataset)} samples, Eval: {len(eval_dataset)} samples")
 
-    # eval_strategy (NOT evaluation_strategy - removed in transformers 4.41+)
+    # YOUR CODE: build TrainingArguments. Fill the three blanks. CRITICAL: use
+    # eval_strategy, NOT evaluation_strategy (removed in transformers 4.41+).
+    # Evaluate and checkpoint once per epoch so the best model can be reloaded.
     training_args = TrainingArguments(
         output_dir=args.model_dir,
         num_train_epochs=args.epochs,
         per_device_train_batch_size=args.batch_size,
         per_device_eval_batch_size=args.batch_size,
-        learning_rate=args.lr,
-        eval_strategy="epoch",
-        save_strategy="epoch",
+        learning_rate=None,  # YOUR CODE: the step size (args.lr)
+        eval_strategy=None,  # YOUR CODE: when to run evaluation ("epoch")
+        save_strategy=None,  # YOUR CODE: when to checkpoint ("epoch")
         load_best_model_at_end=True,
         metric_for_best_model="accuracy",
         logging_steps=50,
@@ -286,8 +288,9 @@ def main():
     print(f"Final accuracy: {eval_result['eval_accuracy']:.4f}")
 
     print(f"\nSaving model to {args.model_dir}")
-    trainer.save_model(args.model_dir)
-    tokenizer.save_pretrained(args.model_dir)
+    # YOUR CODE: save the trained model and tokenizer to args.model_dir. (2 lines)
+    None  # YOUR CODE
+    None  # YOUR CODE
 
     metrics = {
         "training_loss": round(train_result.training_loss, 4),

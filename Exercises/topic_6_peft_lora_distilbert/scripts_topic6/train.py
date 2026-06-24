@@ -218,16 +218,22 @@ def build_model(peft_method, lora_r, lora_alpha, num_labels=NUM_LABELS):
             label2id=label2id,
         )
 
+    # YOUR CODE: build the LoRA configuration. Fill the four blanks below.
+    # This is a sequence-classification task. The rank and alpha come from the
+    # function arguments. DistilBERT's attention projections are named "q_lin"
+    # and "v_lin" - those are the modules LoRA should adapt. The classifier and
+    # pre_classifier heads are new, so they must be trained in full (saved too).
     lora_config = LoraConfig(
-        task_type=TaskType.SEQ_CLS,
-        r=lora_r,
-        lora_alpha=lora_alpha,
-        target_modules=["q_lin", "v_lin"],
+        task_type=None,  # YOUR CODE: the PEFT task type for classification (TaskType.SEQ_CLS)
+        r=None,  # YOUR CODE: the LoRA rank (lora_r)
+        lora_alpha=None,  # YOUR CODE: the LoRA scaling factor (lora_alpha)
+        target_modules=None,  # YOUR CODE: which attention projections to adapt
         lora_dropout=0.1,
         bias="none",
         modules_to_save=["classifier", "pre_classifier"],
     )
-    model = get_peft_model(base_model, lora_config)
+    # YOUR CODE: wrap base_model with the LoRA adapters using lora_config.
+    model = None  # YOUR CODE
     model.print_trainable_parameters()
     return model
 
@@ -274,9 +280,10 @@ def main():
     eval_results = trainer.evaluate()
     print(f"Final accuracy: {eval_results['eval_accuracy']:.4f}")
 
-    # Save PEFT adapters (not the full model, much smaller).
-    model.save_pretrained(args.model_dir)
-    tokenizer.save_pretrained(args.model_dir)
+    # YOUR CODE: save the PEFT adapters (not the full model, much smaller) and
+    # the tokenizer to args.model_dir. (2 lines)
+    None  # YOUR CODE
+    None  # YOUR CODE
 
     metrics = {
         "peft_method": args.peft_method,

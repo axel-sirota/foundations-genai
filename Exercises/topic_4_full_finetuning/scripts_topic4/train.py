@@ -156,10 +156,9 @@ def main():
 
     print(f"Loading model: {args.model_name}")
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    model = AutoModelForSequenceClassification.from_pretrained(
-        args.model_name,
-        num_labels=args.num_labels,
-    )
+    # YOUR CODE: load a sequence-classification model from args.model_name
+    # with the right number of output labels (args.num_labels) for 4-class routing.
+    model = None  # YOUR CODE
 
     print("Generating synthetic complaint dataset ...")
     train_dataset, val_dataset = make_dataset(seed=args.seed)
@@ -183,15 +182,18 @@ def main():
 
     print(f"Train samples: {len(train_dataset)}, Val samples: {len(val_dataset)}")
 
-    # CRITICAL: eval_strategy NOT evaluation_strategy (removed in transformers 4.41+)
+    # YOUR CODE: build the TrainingArguments for full fine-tuning.
+    # Fill in the four blanks below. CRITICAL: use eval_strategy, NOT
+    # evaluation_strategy (removed in transformers 4.41+). Evaluate and save
+    # once per epoch so load_best_model_at_end can pick the best checkpoint.
     training_args = TrainingArguments(
         output_dir=args.output_dir,
-        num_train_epochs=args.epochs,
+        num_train_epochs=None,  # YOUR CODE: how many passes over the data (args.epochs)
         per_device_train_batch_size=args.batch_size,
         per_device_eval_batch_size=args.batch_size,
-        learning_rate=args.lr,
-        eval_strategy="epoch",
-        save_strategy="epoch",
+        learning_rate=None,  # YOUR CODE: the step size (args.lr)
+        eval_strategy=None,  # YOUR CODE: when to run evaluation ("epoch")
+        save_strategy=None,  # YOUR CODE: when to checkpoint ("epoch")
         load_best_model_at_end=True,
         metric_for_best_model="accuracy",
         logging_steps=10,
@@ -215,8 +217,10 @@ def main():
 
     model_output_dir = args.model_dir
     os.makedirs(model_output_dir, exist_ok=True)
-    trainer.save_model(model_output_dir)
-    tokenizer.save_pretrained(model_output_dir)
+    # YOUR CODE: persist the fine-tuned model and its tokenizer to model_output_dir
+    # so the artifact can be loaded back for inference. (2 lines)
+    None  # YOUR CODE
+    None  # YOUR CODE
 
     metrics_path = os.path.join(model_output_dir, "metrics.json")
     with open(metrics_path, "w") as f:
